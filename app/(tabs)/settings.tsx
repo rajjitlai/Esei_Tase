@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePlayerContext } from '../../src/context/PlayerContext';
 import { MiniPlayer } from '../../src/components/MiniPlayer';
 
+import { PageLayout } from '../../src/components/PageLayout';
+
 const APP_VERSION = '1.0.0';
 const GITHUB_URL = 'https://github.com/rajjitlai';
 
@@ -28,20 +30,17 @@ function Row({ label, value, muted, surface, onPress, right }: {
 }
 
 export default function SettingsScreen() {
-  const { theme } = usePlayerContext();
+  const { theme, shuffle, repeat, toggleShuffle, toggleRepeat } = usePlayerContext();
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={[styles.header, { borderBottomColor: 'rgba(255,255,255,0.07)' }]}>
-        <Text style={[styles.headerTitle, { color: '#f0f0f0' }]}>Settings</Text>
-      </View>
+    <PageLayout theme={theme}>
       <MiniPlayer />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* ... rest of content */}
 
         <Section title="About" accent={theme.accent}>
           <Row label="App" value="Esei Tase" muted={theme.muted} surface={theme.surface} />
           <Row label="Version" value={APP_VERSION} muted={theme.muted} surface={theme.surface} />
-          <Row label="Description" value="A beautiful, 100% offline local music player. No accounts or internet required, just pure music playback." muted={theme.muted} surface={theme.surface} />
         </Section>
 
         <Section title="Developer" accent={theme.accent}>
@@ -57,16 +56,18 @@ export default function SettingsScreen() {
 
         <Section title="Preferences" accent={theme.accent}>
           <Row label="Shuffle" muted={theme.muted} surface={theme.surface}
-            right={<Switch value={false} disabled thumbColor={theme.muted} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent }} />}
+            right={<Switch value={shuffle} onValueChange={toggleShuffle} thumbColor={shuffle ? theme.accent : theme.muted} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent + '80' }} />}
           />
           <Row label="Repeat" muted={theme.muted} surface={theme.surface}
-            right={<Switch value={false} disabled thumbColor={theme.muted} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent }} />}
+            right={<Switch value={repeat} onValueChange={toggleRepeat} thumbColor={repeat ? theme.accent : theme.muted} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent + '80' }} />}
           />
-          <Row label="Theme Override" value="Coming soon" muted={theme.muted} surface={theme.surface} />
+          <Row label="Media Notifications" muted={theme.muted} surface={theme.surface}
+            right={<Switch value={true} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent + '80' }} />}
+          />
         </Section>
 
       </ScrollView>
-    </SafeAreaView>
+    </PageLayout>
   );
 }
 

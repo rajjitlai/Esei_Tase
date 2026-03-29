@@ -23,6 +23,10 @@ interface PlayerContextValue {
   setVolume: (v: number) => void;
   nextTrack: () => void;
   prevTrack: () => void;
+  shuffle: boolean;
+  repeat: boolean;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
   // Theme
   theme: ThemeColors;
 }
@@ -31,7 +35,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { tracks, setTracks, loading, permissionDenied } = useMediaLibrary();
-  const { state, loadTrack, togglePlay, seekTo, setVolume, nextTrack, prevTrack } = usePlayer(tracks);
+  const { state, loadTrack, togglePlay, seekTo, setVolume, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
 
   const currentTrack = state.currentIndex >= 0 ? tracks[state.currentIndex] : null;
   const theme = useAlbumColor(currentTrack?.artUri ?? null);
@@ -54,6 +58,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setVolume,
         nextTrack,
         prevTrack,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
+        toggleShuffle,
+        toggleRepeat,
         theme,
       }}
     >

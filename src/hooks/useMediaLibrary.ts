@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import * as MediaLibrary from 'expo-media-library';
-import MetadataRetriever from '@missingcore/react-native-metadata-retriever';
+import * as MetadataRetriever from '@missingcore/react-native-metadata-retriever';
 import { Track } from '../types/Track';
 
 export function useMediaLibrary() {
@@ -37,6 +37,7 @@ export function useMediaLibrary() {
     const initialTracks: Track[] = allAssets.map((a) => ({
       id: a.id,
       title: a.filename.replace(/\.[^.]+$/, ''),
+      artist: 'Unknown Artist',
       filename: a.filename,
       uri: a.uri,
       duration: a.duration,
@@ -55,14 +56,17 @@ export function useMediaLibrary() {
       await Promise.all(
         chunk.map(async (track) => {
           try {
-            const metadata = await MetadataRetriever.getMetadata(track.uri);
-            if (metadata.picture) {
-              const artUri = `data:${metadata.picture.pictureType};base64,${metadata.picture.data}`;
-              // Optimistically update the single track in-place to avoid massive re-renders
-              track.artUri = artUri;
+            const metadata = await MetadataRetriever.getMetadata(track.uri, MetadataRetriever.MetadataPresets.standardArtwork);
+            const artBase64 = await MetadataRetriever.getArtwork(track.uri);
+            
+            if (artBase64) {
+              track.artUri = artBase64;
             }
             if (metadata.title) {
               track.title = metadata.title;
+            }
+            if (metadata.artist) {
+              track.artist = metadata.artist;
             }
           } catch (e) {
             // Ignore corrupted ID3 tags quietly

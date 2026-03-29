@@ -5,15 +5,13 @@ import { usePlayerContext } from '../../src/context/PlayerContext';
 import { QueueList } from '../../src/components/QueueList';
 import { MiniPlayer } from '../../src/components/MiniPlayer';
 
+import { PageLayout } from '../../src/components/PageLayout';
+
 export default function QueueScreen() {
   const { tracks, currentIndex, theme, loadTrack } = usePlayerContext();
 
   return (
-    <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]} edges={['top']}>
-      <View style={[styles.header, { borderBottomColor: 'rgba(255,255,255,0.07)' }]}>
-        <Text style={[styles.label, { color: theme.muted }]}>QUEUE</Text>
-        <Text style={[styles.count, { color: theme.accent }]}>{tracks.length} tracks</Text>
-      </View>
+    <PageLayout theme={theme}>
       <MiniPlayer />
       <View style={styles.list}>
         <QueueList
@@ -23,7 +21,7 @@ export default function QueueScreen() {
           onSelect={(i) => loadTrack(i, true)}
         />
       </View>
-    </SafeAreaView>
+    </PageLayout>
   );
 }
 

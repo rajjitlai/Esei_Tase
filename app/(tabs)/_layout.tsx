@@ -1,8 +1,10 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { PlayerProvider, usePlayerContext } from '../../src/context/PlayerContext';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 function TabBarIcon({ name, color }: { name: string; color: string }) {
@@ -37,48 +39,77 @@ function TabBarIcon({ name, color }: { name: string; color: string }) {
 
 function ThemedTabs() {
   const { theme } = usePlayerContext();
+  const insets = useSafeAreaInsets();
+  
   return (
-    <>
-      <StatusBar style="light" />
+    <ThemeProvider value={DarkTheme}>
       <Tabs
+        sceneContainerStyle={{ backgroundColor: 'transparent' }}
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-            backgroundColor: theme.surface,
-            borderTopColor: 'rgba(255,255,255,0.07)',
-            height: 60,
-            paddingBottom: 8,
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: 'transparent',
+            borderBottomWidth: 0,
+            borderTopWidth: 0,
+            height: 60 + insets.top,
+            paddingTop: insets.top,
+            zIndex: 1000,
+            elevation: 0,
+            shadowOpacity: 0,
           },
           tabBarActiveTintColor: theme.accent,
           tabBarInactiveTintColor: theme.muted,
-          tabBarLabelStyle: { fontSize: 11, letterSpacing: 0.4 },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6 },
         }}
       >
         <Tabs.Screen
           name="index"
           options={{
             title: 'Home',
-            tabBarIcon: ({ color }) => <TabBarIcon name="home" color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
+                <TabBarIcon name="home" color={color} />
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
           name="queue"
           options={{
             title: 'Queue',
-            tabBarIcon: ({ color }) => <TabBarIcon name="queue" color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
+                <TabBarIcon name="queue" color={color} />
+              </View>
+            ),
           }}
         />
         <Tabs.Screen
           name="settings"
           options={{
             title: 'Settings',
-            tabBarIcon: ({ color }) => <TabBarIcon name="settings" color={color} />,
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
+                <TabBarIcon name="settings" color={color} />
+              </View>
+            ),
           }}
         />
       </Tabs>
-    </>
+    </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    paddingBottom: 4,
+    paddingHorizontal: 12,
+  }
+});
 
 export default function TabLayout() {
   return (

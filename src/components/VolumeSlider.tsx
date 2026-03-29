@@ -1,5 +1,5 @@
-import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Slider from '@react-native-community/slider';
 import Svg, { Polygon, Path } from 'react-native-svg';
 import { ThemeColors } from '../types/Track';
@@ -23,6 +23,8 @@ export function VolumeSlider({ volume, theme, onVolumeChange }: Props) {
         maximumValue={1}
         value={volume}
         onValueChange={onVolumeChange}
+        onSlidingStart={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+        onSlidingComplete={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
         minimumTrackTintColor={theme.accent}
         maximumTrackTintColor="rgba(255,255,255,0.12)"
         thumbTintColor={theme.accent}
