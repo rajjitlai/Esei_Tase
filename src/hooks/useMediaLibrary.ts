@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as MediaLibrary from 'expo-media-library';
+import MetadataRetriever from '@missingcore/react-native-metadata-retriever';
 import { Track } from '../types/Track';
 
 export function useMediaLibrary() {
@@ -34,17 +35,45 @@ export function useMediaLibrary() {
       cursor = page.hasNextPage ? page.endCursor : undefined;
     } while (cursor);
 
-    const mapped: Track[] = allAssets.map((a) => ({
+    const initialTracks: Track[] = allAssets.map((a) => ({
       id: a.id,
       title: a.filename.replace(/\.[^.]+$/, ''),
       filename: a.filename,
       uri: a.uri,
       duration: a.duration,
-      artUri: null, // populated later by metadata retriever
+      artUri: null, // populated below
     }));
 
-    setTracks(mapped);
+    // Perform an initial render with the basic list so UI feels fast
+    setTracks([...initialTracks]);
     setLoading(false);
+
+    // Now progressively load metadata for all tracks in parallel chunks
+    const chunkSize = 20;
+    for (let i = 0; i < initialTracks.length; i += chunkSize) {
+      const chunk = initialTracks.slice(i, i + chunkSize);
+      
+      await Promise.all(
+        chunk.map(async (track) => {
+          try {
+            const metadata = await MetadataRetriever.getMetadata(track.uri);
+            if (metadata.picture) {
+              const artUri = `data:${metadata.picture.pictureType};base64,${metadata.picture.data}`;
+              // Optimistically update the single track in-place to avoid massive re-renders
+              track.artUri = artUri;
+            }
+            if (metadata.title) {
+              track.title = metadata.title;
+            }
+          } catch (e) {
+            // Ignore corrupted ID3 tags quietly
+          }
+        })
+      );
+
+      // Trigger a state update after each chunk finishes so UI updates progressively
+      setTracks((prev) => [...prev]);
+    }
   }
 
   return { tracks, setTracks, loading, permissionDenied, reload: loadTracks };

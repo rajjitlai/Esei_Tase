@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, AudioSource } from 'expo-audio';
 import { Track } from '../types/Track';
 
 export interface PlayerState {
@@ -11,123 +11,92 @@ export interface PlayerState {
 }
 
 export function usePlayer(tracks: Track[]) {
-  const soundRef = useRef<Audio.Sound | null>(null);
-  // Refs hold latest values to avoid stale closures in audio callbacks
-  const currentIndexRef = useRef(-1);
-  const isPlayingRef = useRef(false);
-  const volumeRef = useRef(0.8);
   const tracksRef = useRef(tracks);
+  const currentIndexRef = useRef(-1);
+  const volumeRef = useRef(0.8);
+  const autoPlayRef = useRef(false);
 
-  const [state, setState] = useState<PlayerState>({
-    currentIndex: -1,
-    isPlaying: false,
-    position: 0,
-    duration: 0,
-    volume: 0.8,
-  });
+  const [currentUri, setCurrentUri] = useState<string | null>(null);
+  const [stateOverride, setStateOverride] = useState<Partial<PlayerState>>({});
 
-  // Keep tracksRef fresh
+  useEffect(() => { tracksRef.current = tracks; }, [tracks]);
+
+  const source: AudioSource | null = currentUri ? { uri: currentUri } : null;
+  const player = useAudioPlayer(source ?? { uri: '' });
+  const status = useAudioPlayerStatus(player);
+
   useEffect(() => {
-    tracksRef.current = tracks;
-  }, [tracks]);
-
-  useEffect(() => {
-    Audio.setAudioModeAsync({
-      staysActiveInBackground: true,
-      playsInSilentModeIOS: true,
-    });
-    return () => {
-      soundRef.current?.unloadAsync();
-    };
-  }, []);
-
-  function onStatus(status: AVPlaybackStatus) {
-    if (!status.isLoaded) return;
-    isPlayingRef.current = status.isPlaying;
-    setState((prev) => ({
-      ...prev,
-      isPlaying: status.isPlaying,
-      position: status.positionMillis / 1000,
-      duration: (status.durationMillis ?? 0) / 1000,
-    }));
     if (status.didJustFinish) {
-      // Use ref to avoid stale closure
-      const nextIndex = (currentIndexRef.current + 1) % tracksRef.current.length;
-      loadTrack(nextIndex, true);
+      const next = (currentIndexRef.current + 1) % tracksRef.current.length;
+      _loadTrack(next, true);
     }
-  }
+  }, [status.didJustFinish]);
 
-  async function loadTrack(index: number, autoPlay = true) {
+  useEffect(() => {
+    if (source && player) {
+      player.volume = volumeRef.current;
+      if (autoPlayRef.current) {
+        player.play();
+      }
+    }
+  }, [currentUri]);
+
+  function _loadTrack(index: number, autoPlay: boolean) {
     const currentTracks = tracksRef.current;
     if (index < 0 || index >= currentTracks.length) return;
-    const track = currentTracks[index];
-
-    if (soundRef.current) {
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
-
     currentIndexRef.current = index;
-    setState((prev) => ({
-      ...prev,
-      currentIndex: index,
-      isPlaying: false,
-      position: 0,
-      duration: 0,
-    }));
-
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: track.uri },
-      { shouldPlay: autoPlay, volume: volumeRef.current },
-      onStatus
-    );
-    soundRef.current = sound;
-    isPlayingRef.current = autoPlay;
-    setState((prev) => ({ ...prev, isPlaying: autoPlay }));
+    autoPlayRef.current = autoPlay;
+    setCurrentUri(currentTracks[index].uri);
+    setStateOverride({ currentIndex: index, position: 0, duration: 0 });
   }
 
-  async function togglePlay() {
-    if (!soundRef.current) {
+  function loadTrack(index: number, autoPlay = true) {
+    _loadTrack(index, autoPlay);
+  }
+
+  function togglePlay() {
+    if (!source) {
       if (tracksRef.current.length > 0) loadTrack(0, true);
       return;
     }
-    const status = await soundRef.current.getStatusAsync();
-    if (!status.isLoaded) return;
-    if (status.isPlaying) {
-      await soundRef.current.pauseAsync();
-    } else {
-      await soundRef.current.playAsync();
-    }
+    if (status.playing) player.pause();
+    else player.play();
   }
 
-  async function seekTo(seconds: number) {
-    if (!soundRef.current) return;
-    await soundRef.current.setPositionAsync(seconds * 1000);
+  function seekTo(seconds: number) {
+    player.seekTo(seconds);
   }
 
-  async function setVolume(v: number) {
+  function setVolume(v: number) {
     volumeRef.current = v;
-    setState((prev) => ({ ...prev, volume: v }));
-    if (soundRef.current) {
-      await soundRef.current.setVolumeAsync(v);
-    }
+    player.volume = v;
+    setStateOverride((prev) => ({ ...prev, volume: v }));
   }
 
   function nextTrack() {
-    const idx = currentIndexRef.current;
     if (!tracksRef.current.length) return;
-    loadTrack((idx + 1) % tracksRef.current.length, isPlayingRef.current);
+    _loadTrack((currentIndexRef.current + 1) % tracksRef.current.length, status.playing);
   }
 
   function prevTrack() {
-    const idx = currentIndexRef.current;
     if (!tracksRef.current.length) return;
-    if (state.position > 3) {
+    if ((status.currentTime ?? 0) > 3) {
       seekTo(0);
     } else {
-      loadTrack((idx - 1 + tracksRef.current.length) % tracksRef.current.length, isPlayingRef.current);
+      _loadTrack(
+        (currentIndexRef.current - 1 + tracksRef.current.length) % tracksRef.current.length,
+        status.playing
+      );
     }
   }
+
+  const state: PlayerState = {
+    currentIndex: stateOverride.currentIndex ?? currentIndexRef.current,
+    isPlaying: status.playing ?? false,
+    position: status.currentTime ?? 0,
+    duration: status.duration ?? 0,
+    volume: stateOverride.volume ?? volumeRef.current,
+  };
 
   return { state, loadTrack, togglePlay, seekTo, setVolume, nextTrack, prevTrack };
 }
