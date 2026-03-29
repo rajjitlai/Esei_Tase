@@ -10,7 +10,8 @@
     "scheme": "esei-tase",
     "plugins": [
       "expo-router",
-      "expo-media-library"
+      "expo-media-library",
+      "expo-asset"
     ],
     "experiments": {
       "tsconfigPaths": true,
