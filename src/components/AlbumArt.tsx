@@ -16,6 +16,53 @@ import { ThemeColors } from '../types/Track';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
+function Particle({ theme, initialPos }: { theme: ThemeColors, initialPos: { x: number, y: number } }) {
+  const x = useSharedValue(initialPos.x);
+  const y = useSharedValue(initialPos.y);
+  const opacity = useSharedValue(0.1);
+
+  useEffect(() => {
+    x.value = withRepeat(
+      withSequence(
+        withTiming(initialPos.x + 40, { duration: 15000 + Math.random() * 5000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(initialPos.x, { duration: 15000 + Math.random() * 5000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    y.value = withRepeat(
+      withSequence(
+        withTiming(initialPos.y - 30, { duration: 12000 + Math.random() * 8000, easing: Easing.inOut(Easing.sin) }),
+        withTiming(initialPos.y, { duration: 12000 + Math.random() * 8000, easing: Easing.inOut(Easing.sin) })
+      ),
+      -1,
+      true
+    );
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 4000 + Math.random() * 2000 }),
+        withTiming(0.1, { duration: 4000 + Math.random() * 2000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    position: 'absolute',
+    left: x.value,
+    top: y.value,
+    opacity: opacity.value,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: theme.accent,
+    zIndex: 0,
+  }));
+
+  return <Animated.View style={style} />;
+}
+
 interface Props {
   artUri: string | null;
   theme: ThemeColors;
@@ -26,6 +73,23 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
   const p1 = useSharedValue(0);
   const breath = useSharedValue(1);
   const w1 = useSharedValue(0);
+  
+  // Transition effects
+  const spin = useSharedValue(0);
+  const transitPulse = useSharedValue(1);
+
+  // Triggered on track change
+  useEffect(() => {
+    if (artUri) {
+      spin.value = 0;
+      spin.value = withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) });
+      
+      transitPulse.value = withSequence(
+        withTiming(1.12, { duration: 200, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 400, easing: Easing.in(Easing.ease) })
+      );
+    }
+  }, [artUri]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -50,8 +114,6 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
       cancelAnimation(breath);
       p1.value = withTiming(0, { duration: 800 });
       breath.value = withTiming(1, { duration: 1200 });
-      
-      // Gentle shimmer when paused
       w1.value = withRepeat(withTiming(2 * Math.PI, { duration: 15000, easing: Easing.linear }), -1, false);
     }
   }, [isPlaying]);
@@ -76,11 +138,21 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
   const wp1 = useWave(120, 8, w1, 1.0);
 
   const animatedArtStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: breath.value }],
+    transform: [
+      { scale: breath.value * transitPulse.value },
+      { rotate: `${spin.value * 360}deg` }
+    ],
   }));
 
   return (
     <View style={styles.superContainer}>
+      <Particle theme={theme} initialPos={{ x: 40, y: 80 }} />
+      <Particle theme={theme} initialPos={{ x: 280, y: 50 }} />
+      <Particle theme={theme} initialPos={{ x: 100, y: 280 }} />
+      <Particle theme={theme} initialPos={{ x: 300, y: 240 }} />
+      <Particle theme={theme} initialPos={{ x: 50, y: 180 }} />
+      <Particle theme={theme} initialPos={{ x: 200, y: 300 }} />
+
       <View style={styles.visualizerWrap}>
         <Svg width={360} height={360} viewBox="0 0 360 360">
           <AnimatedPath
@@ -96,10 +168,7 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
 
       <Animated.View style={[styles.artWrap, animatedArtStyle]}>
         {artUri ? (
-          <Image
-            source={{ uri: artUri }}
-            style={styles.artwork}
-          />
+          <Image source={{ uri: artUri }} style={styles.artwork} />
         ) : (
           <View style={styles.placeholder} />
         )}

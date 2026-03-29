@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking, Switch } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePlayerContext } from '../../src/context/PlayerContext';
 import { MiniPlayer } from '../../src/components/MiniPlayer';
-
 import { PageLayout } from '../../src/components/PageLayout';
 
 const APP_VERSION = '1.0.0';
@@ -30,7 +31,10 @@ function Row({ label, value, muted, surface, onPress, right }: {
 }
 
 export default function SettingsScreen() {
-  const { theme, shuffle, repeat, toggleShuffle, toggleRepeat } = usePlayerContext();
+  const { 
+    theme, shuffle, repeat, toggleShuffle, toggleRepeat,
+    bgMode, setBgMode, customBgUri, setCustomBgUri, bgOpacity, setBgOpacity 
+  } = usePlayerContext();
 
   return (
     <PageLayout theme={theme}>
@@ -52,6 +56,47 @@ export default function SettingsScreen() {
             surface={theme.surface}
             onPress={() => Linking.openURL(GITHUB_URL)}
           />
+        </Section>
+
+        <Section title="Wallpaper" accent={theme.accent}>
+          <Row label="Custom Background" muted={theme.muted} surface={theme.surface}
+            right={<Switch value={bgMode === 'custom'} onValueChange={(val) => setBgMode(val ? 'custom' : 'adaptive')} thumbColor={bgMode === 'custom' ? theme.accent : theme.muted} trackColor={{ false: 'rgba(255,255,255,0.1)', true: theme.accent + '80' }} />}
+          />
+          {bgMode === 'custom' && (
+            <>
+              <Row 
+                label="Image Source" 
+                value={customBgUri ? 'Change' : 'Select'} 
+                muted={theme.accent} 
+                surface={theme.surface} 
+                onPress={async () => {
+                  const res = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ['images'],
+                    quality: 1,
+                  });
+                  if (!res.canceled && res.assets[0].uri) {
+                    setCustomBgUri(res.assets[0].uri);
+                  }
+                }} 
+              />
+              <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, paddingVertical: 16 }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, color: '#f0f0f0' }}>Darken Overlay</Text>
+                  <Text style={{ fontSize: 13, color: theme.muted }}>{Math.round(bgOpacity * 100)}%</Text>
+                </View>
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={bgOpacity}
+                  onValueChange={setBgOpacity}
+                  minimumTrackTintColor={theme.accent}
+                  maximumTrackTintColor="rgba(255,255,255,0.1)"
+                  thumbTintColor={theme.accent}
+                />
+              </View>
+            </>
+          )}
         </Section>
 
         <Section title="Preferences" accent={theme.accent}>

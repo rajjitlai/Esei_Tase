@@ -3,9 +3,9 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 import { PlayerProvider, usePlayerContext } from '../../src/context/PlayerContext';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { StatusBar } from 'expo-status-bar';
 
 function TabBarIcon({ name, color }: { name: string; color: string }) {
   if (name === 'home') {
@@ -44,9 +44,11 @@ function ThemedTabs() {
   return (
     <ThemeProvider value={DarkTheme}>
       <Tabs
-        sceneContainerStyle={{ backgroundColor: 'transparent' }}
         screenOptions={{
           headerShown: false,
+          tabBarBackground: () => (
+            <BlurView intensity={65} style={StyleSheet.absoluteFill} tint="dark" />
+          ),
           tabBarStyle: {
             position: 'absolute',
             top: 0,
