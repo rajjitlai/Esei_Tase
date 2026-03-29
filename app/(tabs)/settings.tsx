@@ -5,7 +5,7 @@ import { usePlayerContext } from '../../src/context/PlayerContext';
 import { MiniPlayer } from '../../src/components/MiniPlayer';
 
 const APP_VERSION = '1.0.0';
-const GITHUB_URL = 'https://github.com/rajjitlaishram';
+const GITHUB_URL = 'https://github.com/rajjitlai';
 
 function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
   return (
@@ -41,14 +41,14 @@ export default function SettingsScreen() {
         <Section title="About" accent={theme.accent}>
           <Row label="App" value="Esei Tase" muted={theme.muted} surface={theme.surface} />
           <Row label="Version" value={APP_VERSION} muted={theme.muted} surface={theme.surface} />
-          <Row label="Description" value="100% offline. No accounts. Just your music." muted={theme.muted} surface={theme.surface} />
+          <Row label="Description" value="A beautiful, 100% offline local music player. No accounts or internet required, just pure music playback." muted={theme.muted} surface={theme.surface} />
         </Section>
 
         <Section title="Developer" accent={theme.accent}>
           <Row label="Name" value="Rajjit Laishram" muted={theme.muted} surface={theme.surface} />
           <Row
             label="GitHub"
-            value="@rajjitlaishram"
+            value="@rajjitlai"
             muted={theme.muted}
             surface={theme.surface}
             onPress={() => Linking.openURL(GITHUB_URL)}

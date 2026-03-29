@@ -11,7 +11,8 @@
     "plugins": [
       "expo-router",
       "expo-media-library",
-      "expo-asset"
+      "expo-asset",
+      "./withMedia3Exclude.js"
     ],
     "experiments": {
       "tsconfigPaths": true,

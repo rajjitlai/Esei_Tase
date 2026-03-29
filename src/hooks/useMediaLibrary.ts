@@ -29,7 +29,6 @@ export function useMediaLibrary() {
         mediaType: 'audio',
         first: 500,
         after: cursor,
-        sortBy: [MediaLibrary.SortBy.filename],
       });
       allAssets = [...allAssets, ...page.assets];
       cursor = page.hasNextPage ? page.endCursor : undefined;
