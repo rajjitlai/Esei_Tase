@@ -64,7 +64,7 @@ export default function HomeScreen() {
           theme={theme}
         />
         
-        <BlurView intensity={40} tint="dark" style={styles.glassPanel}>
+        <View style={styles.materialPanel}>
           <SeekBar position={position} duration={duration} theme={theme} onSeek={seekTo} />
           <Controls 
             isPlaying={isPlaying} 
@@ -77,7 +77,7 @@ export default function HomeScreen() {
             onToggleShuffle={toggleShuffle}
             onToggleRepeat={toggleRepeat}
           />
-        </BlurView>
+        </View>
       </View>
     </PageLayout>
   );
@@ -95,15 +95,19 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   hint: { fontSize: 13, textAlign: 'center', marginTop: 12 },
-  glassPanel: {
+  materialPanel: {
     width: '100%',
     padding: 24,
     borderRadius: 32,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#0A0A0A', // Solid Deep Material
     alignItems: 'center',
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
   },
 });

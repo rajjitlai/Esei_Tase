@@ -63,10 +63,6 @@ export function SeekBar({ position, duration, theme, onSeek }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.times}>
-        <Text style={[styles.time, { color: '#ffffff' }]}>{fmt(position)}</Text>
-        <Text style={[styles.time, { color: theme.muted }]}>{fmt(duration)}</Text>
-      </View>
       <View
         ref={barRef}
         style={styles.trackWrap}

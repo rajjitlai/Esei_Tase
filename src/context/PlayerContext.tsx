@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Track, ThemeColors } from '../types/Track';
 import { useMediaLibrary } from '../hooks/useMediaLibrary';
-import { usePlayer } from '../hooks/usePlayer';
+import { useAudio } from '../hooks/useAudio';
 import { useAlbumColor } from '../hooks/useAlbumColor';
 import { useFavorites } from '../hooks/useFavorites';
 
@@ -62,7 +63,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { tracks, setTracks, loading, permissionDenied, minDuration, updateMinDuration } = useMediaLibrary();
-  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
+  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = useAudio(tracks);
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // Sleep Timer State
@@ -183,6 +184,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setSleepTimer,
       }}
     >
+      {bgMode === 'custom' && customBgUri ? (
+        <View style={StyleSheet.absoluteFill}>
+          <Image source={{ uri: customBgUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black', opacity: bgOpacity }]} />
+        </View>
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg }]} />
+      )}
       {children}
     </PlayerContext.Provider>
   );

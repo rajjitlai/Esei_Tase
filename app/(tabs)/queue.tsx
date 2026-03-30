@@ -76,7 +76,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#121212', // Solid Material
   },
   searchInput: {
     flex: 1,

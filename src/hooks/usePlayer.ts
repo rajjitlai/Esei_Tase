@@ -31,14 +31,12 @@ const STORAGE_KEYS = {
 export function usePlayer(tracks: Track[]) {
   const [isReady, setIsReady] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
-  const [isPlayingManual, setIsPlayingManual] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(true);
   const [volume, setVolumeState] = useState(0.8);
   const [rate, setRateState] = useState(1.0);
 
   const lastTracksRef = useRef<string>('');
-  const lastPosRef = useRef<number>(0);
   const playbackState = usePlaybackState();
   const progress = useProgress();
 
@@ -143,7 +141,8 @@ export function usePlayer(tracks: Track[]) {
   const togglePlay = useCallback(async () => {
     if (!isReady) return;
     const { state } = await TrackPlayer.getPlaybackState();
-    if (state === State.Playing || state === State.Buffering) {
+    const s = String(state).toLowerCase();
+    if (s.includes('playing') || s.includes('buffering')) {
       await TrackPlayer.pause();
     } else {
       await TrackPlayer.play();
@@ -199,29 +198,13 @@ export function usePlayer(tracks: Track[]) {
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat]);
 
-  // Heartbeat Detection: If position is moving, we ARE playing.
-  useEffect(() => {
-    const isMoving = progress.position > lastPosRef.current && progress.position > 0;
-    
-    // If the library says we're playing OR our heartbeat detects motion, show as playing.
-    const currentStatus = String((playbackState as any)?.state ?? playbackState).toLowerCase();
-    const libIsPlaying = 
-      currentStatus.includes('playing') || 
-      currentStatus.includes('buffering') || 
-      (playbackState as any)?.state === State.Playing;
-
-    const active = libIsPlaying || isMoving;
-    
-    if (active !== isPlayingManual) {
-      setIsPlayingManual(active);
-    }
-    
-    lastPosRef.current = progress.position;
-  }, [progress.position, playbackState]);
+  // Standard isPlaying detection: Clean and direct.
+  const s = String((playbackState as any)?.state ?? playbackState).toLowerCase();
+  const isPlaying = s.includes('playing') || s.includes('buffering');
 
   const state: PlayerState = {
     currentIndex,
-    isPlaying: isPlayingManual,
+    isPlaying,
     position: progress.position,
     duration: progress.duration,
     volume,
