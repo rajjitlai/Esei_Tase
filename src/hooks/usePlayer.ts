@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import TrackPlayer, { 
-  usePlaybackState, 
-  useProgress, 
-  State, 
+import TrackPlayer, {
+  usePlaybackState,
+  useProgress,
+  State,
   Capability,
   AppKilledPlaybackBehavior,
   RepeatMode,
@@ -11,6 +11,8 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import * as SecureStore from 'expo-secure-store';
 import { Track } from '../types/Track';
+import { triggerWidgetUpdate } from '../widgets/widget-logic';
+import { WIDGET_KEYS } from '../widgets/widget-constants';
 
 export interface PlayerState {
   currentIndex: number;
@@ -39,6 +41,13 @@ export function usePlayer(tracks: Track[]) {
   const lastTracksRef = useRef<string>('');
   const playbackState = usePlaybackState();
   const progress = useProgress();
+
+  // Debug: Log playback state changes
+  useEffect(() => {
+    console.log('[usePlayer] playbackState:', playbackState);
+    const isPlayingDerived = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+    console.log('[usePlayer] isPlayingDerived:', isPlayingDerived, 'currentIndex:', currentIndex);
+  }, [playbackState, currentIndex]);
 
   // Initialize Player
   useEffect(() => {
@@ -86,25 +95,39 @@ export function usePlayer(tracks: Track[]) {
     if (!isReady || !tracks.length) return;
 
     async function updateQueue() {
-      const tracksHash = tracks.map(t => t.id).join(',');
-      if (lastTracksRef.current === tracksHash) return;
-      
-      const queue = await TrackPlayer.getQueue();
-      if (queue.length !== tracks.length) {
-        await TrackPlayer.reset();
-        await TrackPlayer.add(tracks.map(t => ({
-          id: t.id,
-          url: t.uri,
-          title: t.title,
-          artist: t.artist,
-          artwork: t.artUri || undefined,
-          duration: t.duration,
-        })));
-        
-        lastTracksRef.current = tracksHash;
-        if (currentIndex === -1) {
-          setCurrentIndex(0);
+      try {
+        console.log('[usePlayer] Syncing queue, tracks length:', tracks.length);
+        const tracksHash = tracks.map(t => t.id).join(',');
+        if (lastTracksRef.current === tracksHash) {
+          console.log('[usePlayer] Queue already in sync, skipping');
+          return;
         }
+
+        const queue = await TrackPlayer.getQueue();
+        console.log('[usePlayer] Current queue length:', queue.length);
+        if (queue.length !== tracks.length) {
+          console.log('[usePlayer] Resetting and adding tracks');
+          await TrackPlayer.reset();
+          await TrackPlayer.add(tracks.map(t => ({
+            id: t.id,
+            url: t.uri,
+            title: t.title,
+            artist: t.artist,
+            artwork: t.artUri || undefined,
+            duration: t.duration,
+          })));
+          console.log('[usePlayer] Tracks added to queue');
+
+          lastTracksRef.current = tracksHash;
+          if (currentIndex === -1) {
+            setCurrentIndex(0);
+            console.log('[usePlayer] Set currentIndex to 0');
+          }
+        } else {
+          console.log('[usePlayer] Queue length matches, not re-adding');
+        }
+      } catch (e) {
+        console.error('[usePlayer] Queue sync error:', e);
       }
     }
     updateQueue();
@@ -119,33 +142,101 @@ export function usePlayer(tracks: Track[]) {
   // Track Index Sync
   useEffect(() => {
     if (!isReady) return;
-    
+
+    console.log('[usePlayer] Setting up PlaybackActiveTrackChanged listener');
     const trackSub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
+      console.log('[usePlayer] PlaybackActiveTrackChanged event:', event);
       if (event.index !== undefined) {
         setCurrentIndex(event.index);
+        console.log('[usePlayer] currentIndex updated to', event.index);
       }
     });
 
     return () => {
       trackSub.remove();
+      console.log('[usePlayer] Removed PlaybackActiveTrackChanged listener');
     };
   }, [isReady]);
 
+  // --- WIDGET SYNC & COMMANDS ---
+
+  // Sync state to Widget (TrackPlayer handles notifications automatically via track metadata)
+  useEffect(() => {
+    async function syncExternalControls() {
+      if (currentIndex < 0 || !tracks[currentIndex]) return;
+      const track = tracks[currentIndex];
+
+      // Sync to Home Screen Widget
+      try {
+        await SecureStore.setItemAsync(WIDGET_KEYS.TITLE, track.title || 'Unknown');
+        await SecureStore.setItemAsync(WIDGET_KEYS.ARTIST, track.artist || 'Unknown');
+        await SecureStore.setItemAsync(WIDGET_KEYS.IS_PLAYING, String(isPlaying));
+        await SecureStore.setItemAsync(WIDGET_KEYS.ART_URI, track.artUri || '');
+
+        // Trigger the native widget re-render
+        triggerWidgetUpdate();
+      } catch {
+        // Silent fail if storage busy
+      }
+    }
+
+    syncExternalControls();
+  }, [currentIndex, isPlaying, tracks]);
+
+  // Listen for Commands from Widget
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const command = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND);
+        const commandId = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND_ID);
+
+        if (command && commandId) {
+          const lastCmdId = await SecureStore.getItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD);
+          if (commandId !== lastCmdId) {
+            await SecureStore.setItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD, commandId);
+
+            if (command === 'PLAY' || command === 'PAUSE') await togglePlay();
+            else if (command === 'NEXT') await nextTrack();
+            else if (command === 'PREV') await prevTrack();
+
+            await SecureStore.deleteItemAsync(WIDGET_KEYS.COMMAND);
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [togglePlay, nextTrack, prevTrack]);
+
   const loadTrack = useCallback(async (index: number, autoPlay = true) => {
+    console.log('[usePlayer] loadTrack called:', index, 'autoPlay:', autoPlay, 'isReady:', isReady);
     if (!isReady) return;
+    console.log('[usePlayer] Calling TrackPlayer.skip(', index, ')');
     await TrackPlayer.skip(index);
     setCurrentIndex(index);
-    if (autoPlay) await TrackPlayer.play();
+    console.log('[usePlayer] TrackPlayer.skip completed, currentIndex set to', index);
+    if (autoPlay) {
+      console.log('[usePlayer] autoPlay=true, calling TrackPlayer.play()');
+      await TrackPlayer.play();
+      console.log('[usePlayer] TrackPlayer.play() completed');
+    }
   }, [isReady]);
 
   const togglePlay = useCallback(async () => {
     if (!isReady) return;
+    console.log('[usePlayer] togglePlay called');
     const { state } = await TrackPlayer.getPlaybackState();
-    const s = String(state).toLowerCase();
-    if (s.includes('playing') || s.includes('buffering')) {
+    console.log('[usePlayer] getPlaybackState returned:', state);
+    const isCurrentlyPlaying = state === State.Playing || state === State.Buffering;
+    console.log('[usePlayer] isCurrentlyPlaying:', isCurrentlyPlaying);
+    if (isCurrentlyPlaying) {
       await TrackPlayer.pause();
+      console.log('[usePlayer] paused');
     } else {
       await TrackPlayer.play();
+      console.log('[usePlayer] play() called');
     }
   }, [isReady]);
 
@@ -198,9 +289,8 @@ export function usePlayer(tracks: Track[]) {
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat]);
 
-  // Standard isPlaying detection: Clean and direct.
-  const s = String((playbackState as any)?.state ?? playbackState).toLowerCase();
-  const isPlaying = s.includes('playing') || s.includes('buffering');
+  // isPlaying detection using TrackPlayer State enum
+  const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
 
   const state: PlayerState = {
     currentIndex,

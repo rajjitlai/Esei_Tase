@@ -1,8 +1,15 @@
-import TrackPlayer from 'react-native-track-player';
 import { Stack } from 'expo-router';
-import { PlaybackService } from '../src/service';
+import { registerWidgetTaskHandler } from 'react-native-android-widget';
+import { widgetTaskHandler, renderCurrentWidget } from '../src/widgets/widget-task';
+import { setWidgetUpdater } from '../src/widgets/widget-logic';
 
-TrackPlayer.registerPlaybackService(() => PlaybackService);
+// Register widget task at the very top of the entry point
+registerWidgetTaskHandler(widgetTaskHandler);
+
+// Inject the update logic to break the circular dependency
+setWidgetUpdater(() => {
+  renderCurrentWidget();
+});
 
 export default function RootLayout() {
   return (

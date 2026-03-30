@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Track } from '../types/Track';
+import { triggerWidgetUpdate } from '../widgets/widget-logic';
+import { WIDGET_KEYS } from '../widgets/widget-constants';
 
 export interface PlayerState {
   currentIndex: number;
@@ -26,73 +28,34 @@ export function useAudio(tracks: Track[]) {
   const [volume, setVolumeState] = useState(0.8);
   const [rate, setRateState] = useState(1.0);
   const [realtimePosition, setRealtimePosition] = useState(0);
+  const [shouldPlay, setShouldPlay] = useState(false);
 
-  // Initialize the player with the first track or current track
-  const currentTrack = currentIndex >= 0 ? tracks[currentIndex] : null;
-  const player = useAudioPlayer(currentTrack?.uri ?? '');
+  // SINGLETON PLAYER: Use a constant initial source to keep the player object alive forever.
+  // This prevents the "Cannot use shared object that was already released" crash.
+  const player = useAudioPlayer('');
   const status = useAudioPlayerStatus(player);
 
   const lastTracksRef = useRef<string>('');
 
-  // Persisted Settings
-  useEffect(() => {
-    async function loadSettings() {
-      const savedShuffle = await SecureStore.getItemAsync(STORAGE_KEYS.SHUFFLE);
-      const savedRepeat = await SecureStore.getItemAsync(STORAGE_KEYS.REPEAT);
-      if (savedShuffle !== null) setShuffle(savedShuffle === 'true');
-      if (savedRepeat !== null) {
-        const repeatVal = savedRepeat === 'true';
-        setRepeat(repeatVal);
-        player.loop = repeatVal;
-      }
-    }
-    loadSettings();
-  }, [player]);
-
-  // Real-time Progress Heartbeat (500ms)
-  useEffect(() => {
-    if (!player.playing) {
-      setRealtimePosition((player as any).currentTime ?? 0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setRealtimePosition((player as any).currentTime ?? 0);
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [player.playing, player]);
-
-  // Handle Track Completion
-  useEffect(() => {
-    const cur = (player as any).currentTime ?? 0;
-    const dur = (player as any).duration ?? 0;
-    if (cur > 0 && dur > 0 && cur >= dur && !player.loop) {
-      nextTrack();
-    }
-  }, [status, player.loop]);
 
   const loadTrack = useCallback((index: number, autoPlay = true) => {
     if (index < 0 || index >= tracks.length) return;
     setCurrentIndex(index);
     const uri = tracks[index].uri;
     if (uri) {
-      // In expo-audio, we use replace or direct source change
       if ((player as any).replace) {
         (player as any).replace(uri);
       } else {
         (player as any).source = uri;
       }
       
-      if (autoPlay) {
-        player.play();
-      } else {
-        player.pause();
-      }
+      if (autoPlay) setShouldPlay(true);
+      else setShouldPlay(false);
     }
   }, [tracks, player]);
 
   const togglePlay = useCallback(() => {
+    if (!player) return;
     if (player.playing) {
       player.pause();
     } else {
@@ -101,7 +64,12 @@ export function useAudio(tracks: Track[]) {
   }, [player]);
 
   const seekTo = useCallback((seconds: number) => {
-    player.seekTo(seconds * 1000); 
+    if (!player) return;
+    try {
+      player.seekTo(seconds * 1000); 
+    } catch (e) {
+      // Safety guard against released objects
+    }
   }, [player]);
 
   const setVolume = useCallback((v: number) => {
@@ -148,6 +116,111 @@ export function useAudio(tracks: Track[]) {
     (player as any).loop = newVal;
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat, player]);
+
+  // --- WIDGET SYNC & COMMANDS ---
+
+  // Sync state to Widget & System Notification (Lock Screen)
+  useEffect(() => {
+    async function syncExternalControls() {
+      if (currentIndex < 0) return;
+      const track = tracks[currentIndex];
+      
+      // 1. Update System Notification (Lock Screen / Control Center)
+      if (player && (player as any).setMetadata) {
+        (player as any).setMetadata({
+          title: track.title,
+          artist: track.artist,
+          album: 'Esei Tase', 
+          artwork: track.artUri,
+        });
+      }
+
+      // 2. Sync to Home Screen Widget
+      await SecureStore.setItemAsync(WIDGET_KEYS.TITLE, track.title || 'Unknown');
+      await SecureStore.setItemAsync(WIDGET_KEYS.ARTIST, track.artist || 'Unknown');
+      await SecureStore.setItemAsync(WIDGET_KEYS.IS_PLAYING, String(player.playing));
+      await SecureStore.setItemAsync(WIDGET_KEYS.ART_URI, track.artUri || '');
+      
+      // Trigger the native widget re-render
+      triggerWidgetUpdate();
+    }
+    syncExternalControls();
+  }, [currentIndex, player.playing, tracks]);
+
+  // Listen for Commands from Widget
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const command = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND);
+      const commandId = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND_ID);
+      
+      if (command && commandId) {
+        const lastCmdId = (await SecureStore.getItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD)) || '';
+        if (commandId !== lastCmdId) {
+          await SecureStore.setItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD, commandId);
+          
+          if (command === 'PLAY' || command === 'PAUSE') togglePlay();
+          if (command === 'NEXT') nextTrack();
+          if (command === 'PREV') prevTrack();
+          
+          await SecureStore.deleteItemAsync(WIDGET_KEYS.COMMAND);
+        }
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [togglePlay, nextTrack, prevTrack]);
+
+  // --- EFFECTS ---
+
+  // Persisted Settings
+  useEffect(() => {
+    async function loadSettings() {
+      const savedShuffle = await SecureStore.getItemAsync(STORAGE_KEYS.SHUFFLE);
+      const savedRepeat = await SecureStore.getItemAsync(STORAGE_KEYS.REPEAT);
+      if (savedShuffle !== null) setShuffle(savedShuffle === 'true');
+      if (savedRepeat !== null) {
+        const repeatVal = savedRepeat === 'true';
+        setRepeat(repeatVal);
+        (player as any).loop = repeatVal;
+      }
+    }
+    loadSettings();
+  }, [player]);
+
+  // Handle Intentional Playback (after track change)
+  useEffect(() => {
+    if (shouldPlay && player) {
+      player.play();
+      // Auto-reset after a delay to ensure the play command is caught by the engine
+      const t = setTimeout(() => setShouldPlay(false), 800);
+      return () => clearTimeout(t);
+    }
+  }, [shouldPlay, currentIndex, player]);
+
+  const lastTriggeredIndex = useRef(-1);
+
+  // Real-time Progress & Auto-Play Heartbeat
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const cur = (player as any).currentTime ?? 0;
+      if (typeof cur === 'number') {
+        setRealtimePosition(cur);
+      }
+
+      // Handle Completion
+      const dur = (player as any).duration || (tracks[currentIndex]?.duration ?? 0) * 1000;
+      
+      // ULTRA-ROBUST AUTO-PLAY: If we're within 1.2s of the end, jump to next.
+      // We use a ref to ensure we only jump once per track.
+      if (dur > 2000 && cur > 1000 && cur >= dur - 1200 && !player.loop) {
+        if (lastTriggeredIndex.current !== currentIndex) {
+          lastTriggeredIndex.current = currentIndex;
+          nextTrack();
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [player, currentIndex, tracks, player.loop, nextTrack]);
 
   const state: PlayerState = {
     currentIndex,

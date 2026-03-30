@@ -4,7 +4,6 @@ import { BlurView } from 'expo-blur';
 import { usePlayerContext } from '../../src/context/PlayerContext';
 import { AlbumArt } from '../../src/components/AlbumArt';
 import { TrackInfo } from '../../src/components/TrackInfo';
-import { SeekBar } from '../../src/components/SeekBar';
 import { Controls } from '../../src/components/Controls';
 import { PageLayout } from '../../src/components/PageLayout';
 
@@ -65,7 +64,6 @@ export default function HomeScreen() {
         />
         
         <View style={styles.materialPanel}>
-          <SeekBar position={position} duration={duration} theme={theme} onSeek={seekTo} />
           <Controls 
             isPlaying={isPlaying} 
             theme={theme} 

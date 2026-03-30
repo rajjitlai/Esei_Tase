@@ -3,7 +3,7 @@ import { View, StyleSheet, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Track, ThemeColors } from '../types/Track';
 import { useMediaLibrary } from '../hooks/useMediaLibrary';
-import { useAudio } from '../hooks/useAudio';
+import { usePlayer } from '../hooks/usePlayer';
 import { useAlbumColor } from '../hooks/useAlbumColor';
 import { useFavorites } from '../hooks/useFavorites';
 
@@ -63,7 +63,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const { tracks, setTracks, loading, permissionDenied, minDuration, updateMinDuration } = useMediaLibrary();
-  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = useAudio(tracks);
+  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // Sleep Timer State

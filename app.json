@@ -13,7 +13,25 @@
       "expo-media-library",
       "expo-asset",
       "./withMedia3Exclude.js",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "EseiTaseMusicWidget",
+              "label": "Esei Tase Player",
+              "description": "Control your music from the home screen",
+              "minWidth": "60dp",
+              "minHeight": "60dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "updatePeriodMillis": 0,
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true,
