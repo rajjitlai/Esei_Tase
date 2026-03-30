@@ -31,11 +31,14 @@ const STORAGE_KEYS = {
 export function usePlayer(tracks: Track[]) {
   const [isReady, setIsReady] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(-1);
+  const [isPlayingManual, setIsPlayingManual] = useState(false);
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState(true);
   const [volume, setVolumeState] = useState(0.8);
   const [rate, setRateState] = useState(1.0);
 
+  const lastTracksRef = useRef<string>('');
+  const lastPosRef = useRef<number>(0);
   const playbackState = usePlaybackState();
   const progress = useProgress();
 
@@ -63,7 +66,7 @@ export function usePlayer(tracks: Track[]) {
           ],
         });
         await TrackPlayer.setRate(1.0);
-
+        
         const savedShuffle = await SecureStore.getItemAsync(STORAGE_KEYS.SHUFFLE);
         const savedRepeat = await SecureStore.getItemAsync(STORAGE_KEYS.REPEAT);
         
@@ -85,8 +88,10 @@ export function usePlayer(tracks: Track[]) {
     if (!isReady || !tracks.length) return;
 
     async function updateQueue() {
+      const tracksHash = tracks.map(t => t.id).join(',');
+      if (lastTracksRef.current === tracksHash) return;
+      
       const queue = await TrackPlayer.getQueue();
-      // Simple check: if lengths differ or it's empty, reset
       if (queue.length !== tracks.length) {
         await TrackPlayer.reset();
         await TrackPlayer.add(tracks.map(t => ({
@@ -98,6 +103,7 @@ export function usePlayer(tracks: Track[]) {
           duration: t.duration,
         })));
         
+        lastTracksRef.current = tracksHash;
         if (currentIndex === -1) {
           setCurrentIndex(0);
         }
@@ -115,12 +121,16 @@ export function usePlayer(tracks: Track[]) {
   // Track Index Sync
   useEffect(() => {
     if (!isReady) return;
-    const sub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
+    
+    const trackSub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
       if (event.index !== undefined) {
         setCurrentIndex(event.index);
       }
     });
-    return () => sub.remove();
+
+    return () => {
+      trackSub.remove();
+    };
   }, [isReady]);
 
   const loadTrack = useCallback(async (index: number, autoPlay = true) => {
@@ -132,8 +142,8 @@ export function usePlayer(tracks: Track[]) {
 
   const togglePlay = useCallback(async () => {
     if (!isReady) return;
-    const state = await TrackPlayer.getState();
-    if (state === State.Playing) {
+    const { state } = await TrackPlayer.getPlaybackState();
+    if (state === State.Playing || state === State.Buffering) {
       await TrackPlayer.pause();
     } else {
       await TrackPlayer.play();
@@ -189,11 +199,29 @@ export function usePlayer(tracks: Track[]) {
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat]);
 
-  const isPlaying = (playbackState && (playbackState as any).state) === State.Playing;
+  // Heartbeat Detection: If position is moving, we ARE playing.
+  useEffect(() => {
+    const isMoving = progress.position > lastPosRef.current && progress.position > 0;
+    
+    // If the library says we're playing OR our heartbeat detects motion, show as playing.
+    const currentStatus = String((playbackState as any)?.state ?? playbackState).toLowerCase();
+    const libIsPlaying = 
+      currentStatus.includes('playing') || 
+      currentStatus.includes('buffering') || 
+      (playbackState as any)?.state === State.Playing;
+
+    const active = libIsPlaying || isMoving;
+    
+    if (active !== isPlayingManual) {
+      setIsPlayingManual(active);
+    }
+    
+    lastPosRef.current = progress.position;
+  }, [progress.position, playbackState]);
 
   const state: PlayerState = {
     currentIndex,
-    isPlaying: !!isPlaying,
+    isPlaying: isPlayingManual,
     position: progress.position,
     duration: progress.duration,
     volume,

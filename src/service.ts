@@ -6,4 +6,10 @@ export async function PlaybackService() {
   TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
   TrackPlayer.addEventListener(Event.RemotePrevious, () => TrackPlayer.skipToPrevious());
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
+  TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.stop());
+  
+  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
+    // If we're at the end, just stop or handle repeat logic if needed
+    console.log('Playback queue ended');
+  });
 }
