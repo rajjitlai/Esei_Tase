@@ -1,4 +1,4 @@
-# Esei Tase
+# Esei Tase v1.0.0
 
 A fully offline local music player for Android, built with Expo and React Native. No streaming, no accounts, no internet required — just your device's audio library.
 
