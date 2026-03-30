@@ -13,7 +13,8 @@ export default function HomeScreen() {
     tracks, currentIndex, isPlaying, position, duration, volume,
     theme, loading, permissionDenied,
     togglePlay, seekTo, setVolume, nextTrack, prevTrack, loadTrack,
-    shuffle, repeat, toggleShuffle, toggleRepeat
+    shuffle, repeat, toggleShuffle, toggleRepeat,
+    isFavorite, toggleFavorite
   } = usePlayerContext();
 
   React.useEffect(() => {
@@ -50,7 +51,13 @@ export default function HomeScreen() {
   return (
     <PageLayout theme={theme}>
       <View style={styles.content}>
-        <AlbumArt artUri={currentTrack?.artUri ?? null} theme={theme} isPlaying={isPlaying} />
+        <AlbumArt 
+          artUri={currentTrack?.artUri ?? null} 
+          theme={theme} 
+          isPlaying={isPlaying} 
+          isFavorite={currentTrack ? isFavorite(currentTrack.id) : false}
+          onToggleFavorite={() => currentTrack && toggleFavorite(currentTrack.id)}
+        />
         <TrackInfo
           title={currentTrack?.title ?? 'No track loaded'}
           subtitle={subtitle}

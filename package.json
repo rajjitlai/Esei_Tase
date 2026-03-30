@@ -1,6 +1,6 @@
 {
   "name": "esei-tase",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scripts": {
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -8,7 +8,8 @@
     "prebuild": "expo prebuild",
     "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
     "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@missingcore/react-native-metadata-retriever": "^2.5.0",
@@ -38,6 +39,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-track-player": "^4.1.2",
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
@@ -46,6 +48,7 @@
     "eslint": "^9.25.1",
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^10.1.2",
+    "patch-package": "^8.0.1",
     "prettier": "^3.2.5",
     "react-refresh": "^0.18.0",
     "typescript": "~5.9.2"

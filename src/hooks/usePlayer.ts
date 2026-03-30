@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAudioPlayer, useAudioPlayerStatus, AudioSource } from 'expo-audio';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import TrackPlayer, { 
+  usePlaybackState, 
+  useProgress, 
+  State, 
+  Capability,
+  AppKilledPlaybackBehavior,
+  RepeatMode,
+  Event,
+  PlaybackActiveTrackChangedEvent
+} from 'react-native-track-player';
 import * as SecureStore from 'expo-secure-store';
 import { Track } from '../types/Track';
 
@@ -9,6 +18,7 @@ export interface PlayerState {
   position: number;
   duration: number;
   volume: number;
+  rate: number;
   shuffle: boolean;
   repeat: boolean;
 }
@@ -19,191 +29,178 @@ const STORAGE_KEYS = {
 };
 
 export function usePlayer(tracks: Track[]) {
-  const tracksRef = useRef(tracks);
-  const currentIndexRef = useRef(-1);
-  const volumeRef = useRef(0.8);
-  const autoPlayRef = useRef(false);
-  const shuffleRef = useRef(false);
-  const repeatRef = useRef(true); // Default to repeating the playlist
+  const [isReady, setIsReady] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(-1);
+  const [shuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState(true);
+  const [volume, setVolumeState] = useState(0.8);
+  const [rate, setRateState] = useState(1.0);
 
-  const [currentUri, setCurrentUri] = useState<string | null>(null);
-  const [stateOverride, setStateOverride] = useState<Partial<PlayerState>>({});
-  const [shuffleState, setShuffleState] = useState(false);
-  const [repeatState, setRepeatState] = useState(true);
+  const playbackState = usePlaybackState();
+  const progress = useProgress();
 
-  // Persistence: Load settings on mount
+  // Initialize Player
   useEffect(() => {
-    const loadSettings = async () => {
+    let unmounted = false;
+    async function setup() {
       try {
+        await TrackPlayer.setupPlayer();
+        await TrackPlayer.updateOptions({
+          android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+          },
+          capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.SeekTo,
+          ],
+          compactCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+          ],
+        });
+        await TrackPlayer.setRate(1.0);
+
         const savedShuffle = await SecureStore.getItemAsync(STORAGE_KEYS.SHUFFLE);
         const savedRepeat = await SecureStore.getItemAsync(STORAGE_KEYS.REPEAT);
         
-        if (savedShuffle !== null) {
-          const isShuffle = savedShuffle === 'true';
-          shuffleRef.current = isShuffle;
-          setShuffleState(isShuffle);
-        }
-        
-        if (savedRepeat !== null) {
-          const isRepeat = savedRepeat === 'true';
-          repeatRef.current = isRepeat;
-          setRepeatState(isRepeat);
-        }
+        if (savedShuffle !== null) setShuffle(savedShuffle === 'true');
+        if (savedRepeat !== null) setRepeat(savedRepeat === 'true');
+
+        if (!unmounted) setIsReady(true);
       } catch (e) {
-        console.error('Failed to load player settings:', e);
+        // Already initialized or failed
+        if (!unmounted) setIsReady(true);
       }
-    };
-    loadSettings();
+    }
+    setup();
+    return () => { unmounted = true; };
   }, []);
 
-  async function toggleShuffle() {
-    const newVal = !shuffleRef.current;
-    shuffleRef.current = newVal;
-    setShuffleState(newVal);
-    try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.SHUFFLE, String(newVal));
-    } catch (e) {
-      console.error('Failed to save shuffle setting:', e);
-    }
-  }
-  
-  async function toggleRepeat() {
-    const newVal = !repeatRef.current;
-    repeatRef.current = newVal;
-    setRepeatState(newVal);
-    try {
-      await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
-    } catch (e) {
-      console.error('Failed to save repeat setting:', e);
-    }
-  }
-
-  useEffect(() => { tracksRef.current = tracks; }, [tracks]);
-
-  const currentTrack = currentIndexRef.current >= 0 ? tracksRef.current[currentIndexRef.current] : null;
-
-  const source: AudioSource | null = currentUri ? { uri: currentUri } : null;
-  const player = useAudioPlayer(source ?? { uri: '' });
-  const status = useAudioPlayerStatus(player);
-
+  // Sync Tracks to Queue
   useEffect(() => {
-    if (status.didJustFinish) {
-      nextTrack();
-    }
-  }, [status.didJustFinish]);
+    if (!isReady || !tracks.length) return;
 
-  useEffect(() => {
-    if (source && player && currentTrack) {
-      player.volume = volumeRef.current;
-      
-      // Update Lock Screen / Notification Metadata
-      player.setActiveForLockScreen(true, {
-        title: currentTrack.title,
-        artist: currentTrack.artist,
-        artworkUrl: currentTrack.artUri ?? undefined,
-      });
-
-      if (autoPlayRef.current) {
-        player.play();
-      }
-    }
-  }, [currentUri]);
-
-  function _loadTrack(index: number, autoPlay: boolean) {
-    const currentTracks = tracksRef.current;
-    if (index < 0 || index >= currentTracks.length) return;
-    currentIndexRef.current = index;
-    autoPlayRef.current = autoPlay;
-    
-    const newUri = currentTracks[index].uri;
-    if (newUri === currentUri && player) {
-      // Replaying the exact same song! Just rewind.
-      player.seekTo(0);
-      if (autoPlay) player.play();
-    } else {
-      setCurrentUri(newUri);
-    }
-    
-    setStateOverride({ currentIndex: index, position: 0, duration: 0 });
-  }
-
-  function loadTrack(index: number, autoPlay = true) {
-    _loadTrack(index, autoPlay);
-  }
-
-  function togglePlay() {
-    if (!source || !player) {
-      if (tracksRef.current.length > 0) loadTrack(0, true);
-      return;
-    }
-    if (status.playing) {
-      player.pause();
-    } else {
-      // Automatically rewind if the user hits play at the very end of the track
-      if (status.currentTime !== undefined && status.duration !== undefined && 
-          status.duration > 0 && status.currentTime >= status.duration - 0.5) {
-        player.seekTo(0);
-      }
-      player.play();
-    }
-  }
-
-  function seekTo(seconds: number) {
-    player.seekTo(seconds);
-  }
-
-  function setVolume(v: number) {
-    volumeRef.current = v;
-    player.volume = v;
-    setStateOverride((prev) => ({ ...prev, volume: v }));
-  }
-
-  function nextTrack() {
-    if (!tracksRef.current.length) return;
-    let next;
-    if (shuffleRef.current) {
-      next = Math.floor(Math.random() * tracksRef.current.length);
-    } else {
-      next = currentIndexRef.current + 1;
-      if (next >= tracksRef.current.length) {
-        if (repeatRef.current) {
-          next = 0;
-        } else {
-          if (player) player.pause();
-          return;
+    async function updateQueue() {
+      const queue = await TrackPlayer.getQueue();
+      // Simple check: if lengths differ or it's empty, reset
+      if (queue.length !== tracks.length) {
+        await TrackPlayer.reset();
+        await TrackPlayer.add(tracks.map(t => ({
+          id: t.id,
+          url: t.uri,
+          title: t.title,
+          artist: t.artist,
+          artwork: t.artUri || undefined,
+          duration: t.duration,
+        })));
+        
+        if (currentIndex === -1) {
+          setCurrentIndex(0);
         }
       }
     }
-    _loadTrack(next, status.playing ?? false);
-  }
+    updateQueue();
+  }, [isReady, tracks]);
 
-  function prevTrack() {
-    if (!tracksRef.current.length) return;
-    if ((status.currentTime ?? 0) > 3) {
-      seekTo(0);
-    } else {
-      if (shuffleRef.current) {
-        _loadTrack(Math.floor(Math.random() * tracksRef.current.length), status.playing ?? false);
-      } else {
-        let prev = currentIndexRef.current - 1;
-        if (prev < 0) {
-          if (repeatRef.current) prev = tracksRef.current.length - 1;
-          else prev = 0;
-        }
-        _loadTrack(prev, status.playing ?? false);
+  // Handle Repeat Mode Change
+  useEffect(() => {
+    if (!isReady) return;
+    TrackPlayer.setRepeatMode(repeat ? RepeatMode.Queue : RepeatMode.Off);
+  }, [isReady, repeat]);
+
+  // Track Index Sync
+  useEffect(() => {
+    if (!isReady) return;
+    const sub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
+      if (event.index !== undefined) {
+        setCurrentIndex(event.index);
       }
+    });
+    return () => sub.remove();
+  }, [isReady]);
+
+  const loadTrack = useCallback(async (index: number, autoPlay = true) => {
+    if (!isReady) return;
+    await TrackPlayer.skip(index);
+    setCurrentIndex(index);
+    if (autoPlay) await TrackPlayer.play();
+  }, [isReady]);
+
+  const togglePlay = useCallback(async () => {
+    if (!isReady) return;
+    const state = await TrackPlayer.getState();
+    if (state === State.Playing) {
+      await TrackPlayer.pause();
+    } else {
+      await TrackPlayer.play();
     }
-  }
+  }, [isReady]);
+
+  const seekTo = useCallback(async (seconds: number) => {
+    if (!isReady) return;
+    await TrackPlayer.seekTo(seconds);
+  }, [isReady]);
+
+  const setVolume = useCallback(async (v: number) => {
+    if (!isReady) return;
+    setVolumeState(v);
+    await TrackPlayer.setVolume(v);
+  }, [isReady]);
+
+  const setRate = useCallback(async (r: number) => {
+    if (!isReady) return;
+    setRateState(r);
+    await TrackPlayer.setRate(r);
+  }, [isReady]);
+
+  const nextTrack = useCallback(async () => {
+    if (!isReady) return;
+    if (shuffle) {
+      const next = Math.floor(Math.random() * tracks.length);
+      await TrackPlayer.skip(next);
+    } else {
+      await TrackPlayer.skipToNext();
+    }
+  }, [isReady, shuffle, tracks.length]);
+
+  const prevTrack = useCallback(async () => {
+    if (!isReady) return;
+    const pos = await TrackPlayer.getPosition();
+    if (pos > 3) {
+      await TrackPlayer.seekTo(0);
+    } else {
+      await TrackPlayer.skipToPrevious();
+    }
+  }, [isReady]);
+
+  const toggleShuffle = useCallback(async () => {
+    const newVal = !shuffle;
+    setShuffle(newVal);
+    await SecureStore.setItemAsync(STORAGE_KEYS.SHUFFLE, String(newVal));
+  }, [shuffle]);
+
+  const toggleRepeat = useCallback(async () => {
+    const newVal = !repeat;
+    setRepeat(newVal);
+    await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
+  }, [repeat]);
+
+  const isPlaying = (playbackState && (playbackState as any).state) === State.Playing;
 
   const state: PlayerState = {
-    currentIndex: stateOverride.currentIndex ?? currentIndexRef.current,
-    isPlaying: status.playing ?? false,
-    position: status.currentTime ?? 0,
-    duration: status.duration ?? 0,
-    volume: stateOverride.volume ?? volumeRef.current,
-    shuffle: shuffleState,
-    repeat: repeatState,
+    currentIndex,
+    isPlaying: !!isPlaying,
+    position: progress.position,
+    duration: progress.duration,
+    volume,
+    rate,
+    shuffle,
+    repeat,
   };
 
-  return { state, loadTrack, togglePlay, seekTo, setVolume, nextTrack, prevTrack, toggleShuffle, toggleRepeat };
+  return { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat };
 }

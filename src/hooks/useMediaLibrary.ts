@@ -1,18 +1,45 @@
 import React, { useEffect, useState } from 'react';
 import * as MediaLibrary from 'expo-media-library';
 import * as MetadataRetriever from '@missingcore/react-native-metadata-retriever';
+import * as SecureStore from 'expo-secure-store';
 import { Track } from '../types/Track';
+
+const MIN_DURATION_KEY = 'esei_tase_min_duration';
+const DEFAULT_MIN_DURATION = 30; // seconds
 
 export function useMediaLibrary() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
 
+  const [minDuration, setMinDuration] = useState(DEFAULT_MIN_DURATION);
+
   useEffect(() => {
-    loadTracks();
+    loadSettings();
   }, []);
 
-  async function loadTracks() {
+  async function loadSettings() {
+    try {
+      const saved = await SecureStore.getItemAsync(MIN_DURATION_KEY);
+      if (saved !== null) {
+        setMinDuration(parseInt(saved, 10));
+      }
+    } catch (e) {
+      console.error('Failed to load minDuration setting', e);
+    }
+  }
+
+  async function updateMinDuration(seconds: number) {
+    setMinDuration(seconds);
+    await SecureStore.setItemAsync(MIN_DURATION_KEY, seconds.toString());
+    loadTracks(seconds); // Reload with new threshold
+  }
+
+  useEffect(() => {
+    loadTracks(minDuration);
+  }, []);
+
+  async function loadTracks(threshold = minDuration) {
     setLoading(true);
     const { status } = await MediaLibrary.requestPermissionsAsync();
     if (status !== 'granted') {
@@ -34,6 +61,8 @@ export function useMediaLibrary() {
       cursor = page.hasNextPage ? page.endCursor : undefined;
     } while (cursor);
 
+    allAssets = allAssets.filter(a => a.duration >= threshold);
+    
     const initialTracks: Track[] = allAssets.map((a) => ({
       id: a.id,
       title: a.filename.replace(/\.[^.]+$/, ''),
@@ -79,5 +108,13 @@ export function useMediaLibrary() {
     }
   }
 
-  return { tracks, setTracks, loading, permissionDenied, reload: loadTracks };
+  return { 
+    tracks, 
+    setTracks, 
+    loading, 
+    permissionDenied, 
+    reload: () => loadTracks(minDuration),
+    minDuration,
+    updateMinDuration 
+  };
 }

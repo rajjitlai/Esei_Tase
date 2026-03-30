@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { Track, ThemeColors } from '../types/Track';
 import { useMediaLibrary } from '../hooks/useMediaLibrary';
 import { usePlayer } from '../hooks/usePlayer';
 import { useAlbumColor } from '../hooks/useAlbumColor';
+import { useFavorites } from '../hooks/useFavorites';
 
 const BG_KEYS = {
   MODE: 'esei_tase_bg_mode',
@@ -25,10 +26,12 @@ interface PlayerContextValue {
   position: number;
   duration: number;
   volume: number;
+  rate: number;
   loadTrack: (index: number, autoPlay?: boolean) => void;
   togglePlay: () => void;
   seekTo: (seconds: number) => void;
   setVolume: (v: number) => void;
+  setRate: (r: number) => void;
   nextTrack: () => void;
   prevTrack: () => void;
   shuffle: boolean;
@@ -44,13 +47,55 @@ interface PlayerContextValue {
   setCustomBgUri: (uri: string | null) => void;
   bgOpacity: number;
   setBgOpacity: (opacity: number) => void;
+  // Filtering
+  minDuration: number;
+  updateMinDuration: (seconds: number) => void;
+  // Favorites
+  isFavorite: (id: string) => boolean;
+  toggleFavorite: (id: string) => void;
+  // Sleep Timer
+  sleepTimer: number; // seconds remaining
+  setSleepTimer: (minutes: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const { tracks, setTracks, loading, permissionDenied } = useMediaLibrary();
-  const { state, loadTrack, togglePlay, seekTo, setVolume, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
+  const { tracks, setTracks, loading, permissionDenied, minDuration, updateMinDuration } = useMediaLibrary();
+  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
+  const { toggleFavorite, isFavorite } = useFavorites();
+
+  // Sleep Timer State
+  const [sleepTimer, _setSleepTimer] = useState(0);
+  const timerRef = useRef<any>(null);
+
+  const setSleepTimer = useCallback((minutes: number) => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    
+    if (minutes <= 0) {
+      _setSleepTimer(0);
+      return;
+    }
+
+    const seconds = minutes * 60;
+    _setSleepTimer(seconds);
+
+    timerRef.current = setInterval(() => {
+      _setSleepTimer((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          togglePlay(); // Pause playback
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [togglePlay]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, []);
 
   const currentTrack = state.currentIndex >= 0 ? tracks[state.currentIndex] : null;
   const theme = useAlbumColor(currentTrack?.artUri ?? null);
@@ -107,10 +152,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         position: state.position,
         duration: state.duration,
         volume: state.volume,
+        rate: state.rate,
         loadTrack,
         togglePlay,
         seekTo,
         setVolume,
+        setRate,
         nextTrack,
         prevTrack,
         shuffle: state.shuffle,
@@ -125,6 +172,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setCustomBgUri,
         bgOpacity,
         setBgOpacity,
+        // Filtering
+        minDuration,
+        updateMinDuration,
+        // Favorites
+        isFavorite,
+        toggleFavorite,
+        // Sleep Timer
+        sleepTimer,
+        setSleepTimer,
       }}
     >
       {children}
