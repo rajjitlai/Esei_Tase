@@ -32,37 +32,69 @@ export function SeekBar({ position, duration, theme, onSeek }: Props) {
   const { isPlaying } = usePlayerContext();
   const barRef = useRef<View>(null);
   const [barWidth, setBarWidth] = useState(1);
-  const [dragging, setDragging] = useState(false);
-  const [dragPos, setDragPos] = useState(0);
+  const isDragging = useSharedValue(false);
+  const dragX = useSharedValue(0);
 
   const progress = duration > 0 ? position / duration : 0;
-  const displayProgress = dragging ? dragPos : progress;
+  
+  // Update dragX when position changes naturally (if not dragging)
+  useEffect(() => {
+    if (!isDragging.value) {
+      dragX.value = progress;
+    }
+  }, [progress]);
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: (e) => {
-      setDragging(true);
-      setDragPos(Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth)));
+      isDragging.value = true;
+      const newPos = Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth));
+      dragX.value = newPos;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     },
     onPanResponderMove: (e) => {
       const newPos = Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth));
-      if (Math.abs(newPos - dragPos) > 0.01) {
-        Haptics.selectionAsync();
-        setDragPos(newPos);
-      }
+      dragX.value = newPos;
     },
     onPanResponderRelease: (e) => {
-      const pos = Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth));
-      setDragging(false);
-      onSeek(pos * duration);
+      const finalDim = Math.max(0, Math.min(1, e.nativeEvent.locationX / barWidth));
+      isDragging.value = false;
+      onSeek(finalDim * duration);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     },
   });
 
+  const animatedHandleStyle = useAnimatedStyle(() => ({
+    left: dragX.value * barWidth,
+    backgroundColor: '#ffffff',
+    shadowColor: theme.accent,
+  }));
+
+  const animatedProgressProps = useAnimatedProps(() => ({
+    width: dragX.value * barWidth,
+  }));
+
+  const [displayTime, setDisplayTime] = useState(fmt(position));
+
+  // Sync the time label using a side effect to avoid stale values
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isDragging.value) {
+        setDisplayTime(fmt(dragX.value * duration));
+      } else {
+        setDisplayTime(fmt(position));
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [position, duration]);
+
   return (
     <View style={styles.wrap}>
+      <View style={styles.times}>
+        <Text style={[styles.time, { color: theme.muted }]}>{displayTime}</Text>
+        <Text style={[styles.time, { color: theme.muted }]}>{fmt(duration)}</Text>
+      </View>
       <View
         ref={barRef}
         style={styles.trackWrap}
@@ -76,22 +108,21 @@ export function SeekBar({ position, duration, theme, onSeek }: Props) {
             fill="rgba(255,255,255,0.12)"
           />
           {/* Active Progress */}
-          <Rect 
-            x={0} y={9} width={displayProgress * barWidth} height={2} rx={1}
+          <AnimatedRect 
+            x={0} y={9} height={2} rx={1}
             fill={theme.accent}
+            animatedProps={animatedProgressProps}
           />
         </Svg>
 
         {/* Handle - SLEEK DOT */}
-        <View style={[styles.handle, { 
-          left: displayProgress * barWidth,
-          backgroundColor: '#ffffff',
-          shadowColor: theme.accent,
-        }]} />
+        <Animated.View style={[styles.handle, animatedHandleStyle]} />
       </View>
     </View>
   );
 }
+
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
 
 const styles = StyleSheet.create({
   wrap: { width: '100%', maxWidth: 360, marginBottom: 28 },

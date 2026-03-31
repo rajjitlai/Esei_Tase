@@ -9,6 +9,7 @@ export function MusicWidget({
 }) {
   return (
     <FlexWidget
+      clickAction="OPEN_APP"
       style={{
         height: 'match_parent',
         width: 'match_parent',
@@ -24,7 +25,7 @@ export function MusicWidget({
     >
       {/* Dynamic Album Art */}
       <ImageWidget
-        image={artUri || require('../../assets/adaptive-icon.png')}
+        image={artUri ? { uri: artUri } : require('../../assets/adaptive-icon.png')}
         imageWidth={54}
         imageHeight={54}
         style={{

@@ -137,12 +137,14 @@ export function AlbumArt({ artUri, theme, isPlaying, isFavorite, onToggleFavorit
         true
       );
       
+      w1.value = 0;
       w1.value = withRepeat(withTiming(2 * Math.PI, { duration: 2500, easing: Easing.linear }), -1, false);
     } else {
       cancelAnimation(p1);
       cancelAnimation(breath);
       p1.value = withTiming(0, { duration: 800 });
       breath.value = withTiming(1, { duration: 1200 });
+      w1.value = 0;
       w1.value = withRepeat(withTiming(2 * Math.PI, { duration: 15000, easing: Easing.linear }), -1, false);
     }
   }, [isPlaying]);

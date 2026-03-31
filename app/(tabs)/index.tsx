@@ -5,6 +5,7 @@ import { usePlayerContext } from '../../src/context/PlayerContext';
 import { AlbumArt } from '../../src/components/AlbumArt';
 import { TrackInfo } from '../../src/components/TrackInfo';
 import { Controls } from '../../src/components/Controls';
+import { SeekBar } from '../../src/components/SeekBar';
 import { PageLayout } from '../../src/components/PageLayout';
 
 export default function HomeScreen() {
@@ -62,8 +63,8 @@ export default function HomeScreen() {
           subtitle={subtitle}
           theme={theme}
         />
-        
         <View style={styles.materialPanel}>
+          <SeekBar position={position} duration={duration} theme={theme} onSeek={seekTo} />
           <Controls 
             isPlaying={isPlaying} 
             theme={theme} 
@@ -87,8 +88,8 @@ const styles = StyleSheet.create({
     flex: 1, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    paddingTop: 120, // Unified offset for top navbar
-    paddingBottom: 60,
+    paddingTop: 60, // Unified offset for top navbar
+    paddingBottom: 30,
     paddingHorizontal: 20 
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },

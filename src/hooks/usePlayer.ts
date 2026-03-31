@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import TrackPlayer, {
-  usePlaybackState,
   useProgress,
   State,
   Capability,
@@ -39,15 +38,41 @@ export function usePlayer(tracks: Track[]) {
   const [rate, setRateState] = useState(1.0);
 
   const lastTracksRef = useRef<string>('');
-  const playbackState = usePlaybackState();
-  const progress = useProgress();
+  const progress = useProgress(200); // 200ms for smoother slider
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Debug: Log playback state changes
+  // Sync isPlaying with TrackPlayer state events
   useEffect(() => {
-    console.log('[usePlayer] playbackState:', playbackState);
-    const isPlayingDerived = playbackState.state === State.Playing || playbackState.state === State.Buffering;
-    console.log('[usePlayer] isPlayingDerived:', isPlayingDerived, 'currentIndex:', currentIndex);
-  }, [playbackState, currentIndex]);
+    if (!isReady) return;
+
+    let mounted = true;
+
+    async function fetchInitialState() {
+      try {
+        const { state } = await TrackPlayer.getPlaybackState();
+        if (mounted) {
+          const playing = state === State.Playing || state === State.Buffering;
+          setIsPlaying(playing);
+        }
+      } catch (e) {
+        console.error('[usePlayer] Error fetching initial playback state:', e);
+      }
+    }
+
+    fetchInitialState();
+
+    const sub = TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
+      // Handle difference between plain state and RN TP v4 event object
+      const eventState = (event as any).state ?? event;
+      const playing = eventState === State.Playing || eventState === State.Buffering;
+      setIsPlaying(playing);
+    });
+
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, [isReady]);
 
   // Initialize Player
   useEffect(() => {
@@ -57,7 +82,7 @@ export function usePlayer(tracks: Track[]) {
         await TrackPlayer.setupPlayer();
         await TrackPlayer.updateOptions({
           android: {
-            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback,
           },
           capabilities: [
             Capability.Play,
@@ -96,17 +121,11 @@ export function usePlayer(tracks: Track[]) {
 
     async function updateQueue() {
       try {
-        console.log('[usePlayer] Syncing queue, tracks length:', tracks.length);
         const tracksHash = tracks.map(t => t.id).join(',');
-        if (lastTracksRef.current === tracksHash) {
-          console.log('[usePlayer] Queue already in sync, skipping');
-          return;
-        }
+        if (lastTracksRef.current === tracksHash) return;
 
         const queue = await TrackPlayer.getQueue();
-        console.log('[usePlayer] Current queue length:', queue.length);
         if (queue.length !== tracks.length) {
-          console.log('[usePlayer] Resetting and adding tracks');
           await TrackPlayer.reset();
           await TrackPlayer.add(tracks.map(t => ({
             id: t.id,
@@ -116,15 +135,12 @@ export function usePlayer(tracks: Track[]) {
             artwork: t.artUri || undefined,
             duration: t.duration,
           })));
-          console.log('[usePlayer] Tracks added to queue');
 
           lastTracksRef.current = tracksHash;
           if (currentIndex === -1) {
             setCurrentIndex(0);
-            console.log('[usePlayer] Set currentIndex to 0');
+            await TrackPlayer.skip(0);
           }
-        } else {
-          console.log('[usePlayer] Queue length matches, not re-adding');
         }
       } catch (e) {
         console.error('[usePlayer] Queue sync error:', e);
@@ -143,18 +159,28 @@ export function usePlayer(tracks: Track[]) {
   useEffect(() => {
     if (!isReady) return;
 
-    console.log('[usePlayer] Setting up PlaybackActiveTrackChanged listener');
     const trackSub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
-      console.log('[usePlayer] PlaybackActiveTrackChanged event:', event);
       if (event.index !== undefined) {
         setCurrentIndex(event.index);
-        console.log('[usePlayer] currentIndex updated to', event.index);
       }
+    });
+
+    const queueEndedSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
+      if (repeat) {
+        await nextTrack();
+      } else {
+        setIsPlaying(false);
+      }
+    });
+
+    // Listen for errors
+    const errorSub = TrackPlayer.addEventListener(Event.PlaybackError, (error) => {
+      console.error('[usePlayer] PlaybackError event:', error);
     });
 
     return () => {
       trackSub.remove();
-      console.log('[usePlayer] Removed PlaybackActiveTrackChanged listener');
+      errorSub.remove();
     };
   }, [isReady]);
 
@@ -183,60 +209,35 @@ export function usePlayer(tracks: Track[]) {
     syncExternalControls();
   }, [currentIndex, isPlaying, tracks]);
 
-  // Listen for Commands from Widget
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const command = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND);
-        const commandId = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND_ID);
-
-        if (command && commandId) {
-          const lastCmdId = await SecureStore.getItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD);
-          if (commandId !== lastCmdId) {
-            await SecureStore.setItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD, commandId);
-
-            if (command === 'PLAY' || command === 'PAUSE') await togglePlay();
-            else if (command === 'NEXT') await nextTrack();
-            else if (command === 'PREV') await prevTrack();
-
-            await SecureStore.deleteItemAsync(WIDGET_KEYS.COMMAND);
-          }
-        }
-      } catch {
-        // Ignore storage errors
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [togglePlay, nextTrack, prevTrack]);
-
   const loadTrack = useCallback(async (index: number, autoPlay = true) => {
-    console.log('[usePlayer] loadTrack called:', index, 'autoPlay:', autoPlay, 'isReady:', isReady);
     if (!isReady) return;
-    console.log('[usePlayer] Calling TrackPlayer.skip(', index, ')');
-    await TrackPlayer.skip(index);
-    setCurrentIndex(index);
-    console.log('[usePlayer] TrackPlayer.skip completed, currentIndex set to', index);
-    if (autoPlay) {
-      console.log('[usePlayer] autoPlay=true, calling TrackPlayer.play()');
-      await TrackPlayer.play();
-      console.log('[usePlayer] TrackPlayer.play() completed');
+    try {
+      await TrackPlayer.skip(index);
+      setCurrentIndex(index);
+      if (autoPlay) {
+        setIsPlaying(true);
+        await TrackPlayer.play();
+      }
+    } catch (e) {
+      console.error('[usePlayer] loadTrack error:', e);
     }
   }, [isReady]);
 
   const togglePlay = useCallback(async () => {
     if (!isReady) return;
-    console.log('[usePlayer] togglePlay called');
-    const { state } = await TrackPlayer.getPlaybackState();
-    console.log('[usePlayer] getPlaybackState returned:', state);
-    const isCurrentlyPlaying = state === State.Playing || state === State.Buffering;
-    console.log('[usePlayer] isCurrentlyPlaying:', isCurrentlyPlaying);
-    if (isCurrentlyPlaying) {
-      await TrackPlayer.pause();
-      console.log('[usePlayer] paused');
-    } else {
-      await TrackPlayer.play();
-      console.log('[usePlayer] play() called');
+    try {
+      const { state } = await TrackPlayer.getPlaybackState();
+      const isCurrentlyPlaying = state === State.Playing || state === State.Buffering;
+      
+      setIsPlaying(!isCurrentlyPlaying); // Optimistic UI Update
+      
+      if (isCurrentlyPlaying) {
+        await TrackPlayer.pause();
+      } else {
+        await TrackPlayer.play();
+      }
+    } catch (e) {
+      console.error('[usePlayer] togglePlay error:', e);
     }
   }, [isReady]);
 
@@ -265,6 +266,8 @@ export function usePlayer(tracks: Track[]) {
     } else {
       await TrackPlayer.skipToNext();
     }
+    setIsPlaying(true);
+    await TrackPlayer.play();
   }, [isReady, shuffle, tracks.length]);
 
   const prevTrack = useCallback(async () => {
@@ -275,6 +278,8 @@ export function usePlayer(tracks: Track[]) {
     } else {
       await TrackPlayer.skipToPrevious();
     }
+    setIsPlaying(true);
+    await TrackPlayer.play();
   }, [isReady]);
 
   const toggleShuffle = useCallback(async () => {
@@ -289,12 +294,38 @@ export function usePlayer(tracks: Track[]) {
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat]);
 
-  // isPlaying detection using TrackPlayer State enum
-  const isPlaying = playbackState.state === State.Playing || playbackState.state === State.Buffering;
+  // Listen for Commands from Widget
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const command = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND);
+        const commandId = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND_ID);
+
+        if (command && commandId) {
+          const lastCmdId = await SecureStore.getItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD);
+          if (commandId !== lastCmdId) {
+            await SecureStore.setItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD, commandId);
+
+            if (command === 'PLAY' || command === 'PAUSE') await togglePlay();
+            else if (command === 'NEXT') await nextTrack();
+            else if (command === 'PREV') await prevTrack();
+
+            await SecureStore.deleteItemAsync(WIDGET_KEYS.COMMAND);
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [togglePlay, nextTrack, prevTrack]);
+
+  // isPlaying is managed via event listener state above
 
   const state: PlayerState = {
     currentIndex,
-    isPlaying,
+    isPlaying, // from useState updated via PlaybackState events
     position: progress.position,
     duration: progress.duration,
     volume,
