@@ -2,37 +2,22 @@
 
 All notable changes to **Esei Tase** will be documented in this file.
 
-## [2.0.0] - 2026-03-30
+## [2.0.0] - 2026-03-31
 ### Added
-- **Core Engine Upgrade**: Complete migration to `react-native-track-player` for superior background stability and full system media controls.
-- **Full Notification Support**: Native seek slider and Next/Previous buttons enabled in system notifications and lock screens.
-- **Library Filtering**: New "Minimum Track Length" filter in Settings to hide voice notes or short clips.
-- **Favorites System**: Heart/unheart tracks with persistent storage and quick-access heart icons in the player and mini-player.
-- **Search with Debounce**: High-performance debounced search filtering for the music queue.
-- **Sleep Timer**: Customizable countdown timer (15/30/60m presets) with automatic fading and playback pause.
-- **Sound Tuning**: Real-time playback speed control (0.5x - 2.0x) and Pitch-perfect Liquid Bass simulation.
-- **OTA Updates**: Integrated GitHub Releases API check to notify users of new versions directly in the app.
+- **Core Engine Upgrade**: Full migration to `react-native-track-player` for superior background stability and native notification controls.
+- **Liked Selection**: Dedicated navigation tab and persistent favorites system to instantly access your top tracks.
+- **High-Performance SeekBar**: Rewritten with `reanimated` SharedValues for 60fps lag-free interaction on the native thread.
+- **Liquid Power UI**: Premium "Liquid Booster" interface and adaptive theming that shifts colors based on your album art.
+- **Smart Filtering**: Custom "Minimum Track Length" settings and debounced search to keep your library clean and fast.
+- **Utility Suite**: Integrated Sleep Timer with auto-fade, playback speed control (0.5x - 2.0x), and in-app OTA update checks.
+- **Android Widget (Beta)**: Experience home screen control with our initial music widget integration.
 
 ### Fixed
-- Fixed notification controls not responding in certain Android background states.
-- Optimized search performance for large libraries using debounced state updates.
-- Improved memory management for high-resolution album art caching.
+- **Animation & Transitions**: Resolved album art freezes and optimized track-to-track auto-play logic.
+- **UI Refinement**: Balanced top-level padding and whitespace for a more cohesive premium feel.
+- **State Reliability**: Improved optimistic UI updates for Play/Pause buttons and resolved notification response lag.
+- **Memory Optimization**: Improved management for high-resolution album art caching.
 
 ## [1.0.0] - 2026-03-30
 ### Added
-- **Core Playback Engine**: Complete migration to `expo-audio` (SDK 54) for high-fidelity audio playback.
-- **Adaptive UI**: Real-time theme generation based on album art dominant colors using `react-native-image-colors`.
-- **Liquid Visualizer**: SVG-based dynamic wave visualizer on the main player screen.
-- **Library Scan**: Efficient device storage scanning using `expo-media-library` with metadata extraction.
-- **Navigation**: Tab-based navigation (Player, Queue, Settings) with a persistent glassmorphic mini-player.
-- **Controls**: Full set of playback controls including shuffle, repeat, seek, and volume.
-- **Animations**: Fluid track transitions ("Spin & Pulse") and ambient background particle system using `react-native-reanimated`.
-- **Metadata Support**: ID3 tag extraction for titles, artists, and artwork via `@missingcore/react-native-metadata-retriever`.
-
-### Fixed
-- Fixed track skipping logic (restart vs. previous track).
-- Resolved race conditions in media loading and state sync.
-- Optimized performance for large music libraries (>1000 tracks).
-
-### Security
-- Secure storage for user preferences and theme settings via `expo-secure-store`.
+- **Initial Release**: Basic offline playback with adaptive UI and media library scanning.
