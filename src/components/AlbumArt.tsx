@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Svg, { Path } from 'react-native-svg';
 import Animated, { 
   SharedValue,
@@ -63,13 +64,41 @@ function Particle({ theme, initialPos }: { theme: ThemeColors, initialPos: { x: 
   return <Animated.View style={style} />;
 }
 
+function LiquidIcon({ isActive, children }: { isActive: boolean, children: React.ReactNode }) {
+  const glow = useSharedValue(1);
+
+  useEffect(() => {
+    if (isActive) {
+      glow.value = withRepeat(
+        withSequence(
+          withTiming(1.15, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+    } else {
+      glow.value = withTiming(1, { duration: 400 });
+    }
+  }, [isActive]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ scale: glow.value }],
+    opacity: isActive ? 1 : 0.6,
+  }));
+
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
 interface Props {
   artUri: string | null;
   theme: ThemeColors;
   isPlaying: boolean;
+  isFavorite: boolean;
+  onToggleFavorite: () => void;
 }
 
-export function AlbumArt({ artUri, theme, isPlaying }: Props) {
+export function AlbumArt({ artUri, theme, isPlaying, isFavorite, onToggleFavorite }: Props) {
   const p1 = useSharedValue(0);
   const breath = useSharedValue(1);
   const w1 = useSharedValue(0);
@@ -108,12 +137,14 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
         true
       );
       
+      w1.value = 0;
       w1.value = withRepeat(withTiming(2 * Math.PI, { duration: 2500, easing: Easing.linear }), -1, false);
     } else {
       cancelAnimation(p1);
       cancelAnimation(breath);
       p1.value = withTiming(0, { duration: 800 });
       breath.value = withTiming(1, { duration: 1200 });
+      w1.value = 0;
       w1.value = withRepeat(withTiming(2 * Math.PI, { duration: 15000, easing: Easing.linear }), -1, false);
     }
   }, [isPlaying]);
@@ -172,6 +203,23 @@ export function AlbumArt({ artUri, theme, isPlaying }: Props) {
         ) : (
           <View style={styles.placeholder} />
         )}
+        
+        <View style={styles.favoriteOverlay}>
+          <TouchableOpacity 
+            onPress={() => {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onToggleFavorite();
+            }} 
+            style={styles.favBtn}
+            activeOpacity={0.6}
+          >
+            <LiquidIcon isActive={isFavorite}>
+              <Svg width={32} height={32} viewBox="0 0 24 24" fill={isFavorite ? theme.accent : 'rgba(0,0,0,0.3)'} stroke={isFavorite ? theme.accent : 'rgba(255,255,255,0.8)'} strokeWidth={2.5}>
+                <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.84-8.84 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </Svg>
+            </LiquidIcon>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -206,5 +254,15 @@ const styles = StyleSheet.create({
   placeholder: {
     width: '100%',
     height: '100%',
+  },
+  favoriteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.1)',
+  },
+  favBtn: {
+    padding: 20,
+    borderRadius: 50,
   },
 });

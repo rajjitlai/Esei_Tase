@@ -4,8 +4,8 @@ import { BlurView } from 'expo-blur';
 import { usePlayerContext } from '../../src/context/PlayerContext';
 import { AlbumArt } from '../../src/components/AlbumArt';
 import { TrackInfo } from '../../src/components/TrackInfo';
-import { SeekBar } from '../../src/components/SeekBar';
 import { Controls } from '../../src/components/Controls';
+import { SeekBar } from '../../src/components/SeekBar';
 import { PageLayout } from '../../src/components/PageLayout';
 
 export default function HomeScreen() {
@@ -13,7 +13,8 @@ export default function HomeScreen() {
     tracks, currentIndex, isPlaying, position, duration, volume,
     theme, loading, permissionDenied,
     togglePlay, seekTo, setVolume, nextTrack, prevTrack, loadTrack,
-    shuffle, repeat, toggleShuffle, toggleRepeat
+    shuffle, repeat, toggleShuffle, toggleRepeat,
+    isFavorite, toggleFavorite
   } = usePlayerContext();
 
   React.useEffect(() => {
@@ -50,14 +51,19 @@ export default function HomeScreen() {
   return (
     <PageLayout theme={theme}>
       <View style={styles.content}>
-        <AlbumArt artUri={currentTrack?.artUri ?? null} theme={theme} isPlaying={isPlaying} />
+        <AlbumArt 
+          artUri={currentTrack?.artUri ?? null} 
+          theme={theme} 
+          isPlaying={isPlaying} 
+          isFavorite={currentTrack ? isFavorite(currentTrack.id) : false}
+          onToggleFavorite={() => currentTrack && toggleFavorite(currentTrack.id)}
+        />
         <TrackInfo
           title={currentTrack?.title ?? 'No track loaded'}
           subtitle={subtitle}
           theme={theme}
         />
-        
-        <BlurView intensity={40} tint="dark" style={styles.glassPanel}>
+        <View style={styles.materialPanel}>
           <SeekBar position={position} duration={duration} theme={theme} onSeek={seekTo} />
           <Controls 
             isPlaying={isPlaying} 
@@ -70,7 +76,7 @@ export default function HomeScreen() {
             onToggleShuffle={toggleShuffle}
             onToggleRepeat={toggleRepeat}
           />
-        </BlurView>
+        </View>
       </View>
     </PageLayout>
   );
@@ -82,21 +88,25 @@ const styles = StyleSheet.create({
     flex: 1, 
     alignItems: 'center', 
     justifyContent: 'center', 
-    paddingTop: 120, // Unified offset for top navbar
-    paddingBottom: 60,
+    paddingTop: 60, // Unified offset for top navbar
+    paddingBottom: 30,
     paddingHorizontal: 20 
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   hint: { fontSize: 13, textAlign: 'center', marginTop: 12 },
-  glassPanel: {
+  materialPanel: {
     width: '100%',
     padding: 24,
     borderRadius: 32,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#0A0A0A', // Solid Deep Material
     alignItems: 'center',
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
   },
 });

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Esei Tase",
     "slug": "esei-tase",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -13,7 +13,25 @@
       "expo-media-library",
       "expo-asset",
       "./withMedia3Exclude.js",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "EseiTaseMusicWidget",
+              "label": "Esei Tase Player",
+              "description": "Control your music from the home screen",
+              "minWidth": "60dp",
+              "minHeight": "60dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "updatePeriodMillis": 0,
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "tsconfigPaths": true,
@@ -34,6 +52,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0e0e0e"

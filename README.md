@@ -1,97 +1,72 @@
-# Esei Tase v1.0.0
+# Esei Tase 🎵
+**The Premium Offline Music Experience for Android**
 
-A fully offline local music player for Android, built with Expo and React Native. No streaming, no accounts, no internet required — just your device's audio library.
+Esei Tase (Meiteilon for *"Song Collection"*) is a high-fidelity, fully offline music player built with Expo and React Native. It is designed for audiophiles who prefer local storage over streaming, offering a "Pure Liquid" interface that adapts to your music.
 
-## Features
+---
 
-- Reads all audio files directly from device storage
-- Extracts album art and metadata from ID3 tags
-- Dynamic UI theming derived from the dominant color of the current track's album art, with smooth animated transitions
-- Three-tab navigation: player, queue, and settings
-- Persistent mini-player visible across queue and settings tabs
-- Playback controls: play/pause, previous, next, seek, and volume
-- Previous track restarts if more than 3 seconds have elapsed; otherwise goes to the prior track
-- Auto-advances to the next track on completion
+## ✨ Key Features
 
-## Stack
+### 🌈 Adaptive Liquid UI
+- **Dynamic Theming**: The entire app's color palette (HSL) shifts in real-time based on the dominant colors of the current track's album art.
+- **Glassmorphic Design**: A modern, translucent interface with depth and premium blur effects.
+- **"Spin & Pulse" Transitions**: Energetic animations that bring your music to life using `react-native-reanimated`.
+
+### 🎧 Pro Playback Engine
+- **Background Support**: Powered by `react-native-track-player` for rock-solid background audio.
+- **System Integration**: Full support for system media notifications and lock screen controls, including a native seek slider and Next/Previous buttons.
+- **Sound Tuning**: Real-time Playback Speed control (0.5x - 2.0x) and a premium "Liquid Bass Express" simulator.
+- **Sleep Timer**: Customizable countdown presets (15, 30, 60m) to automatically pause playback.
+
+### 📂 Library Management
+- **Smart Scanning**: Efficiently scans device storage for audio files with automatic ID3 metadata and high-res artwork extraction.
+- **Advanced Filtering**: Hide short audio clips or voice notes using the customizable "Minimum Track Length" filter.
+- **Instant Search**: High-performance debounced search to find any track in your library instantly.
+- **Favorites**: Build your personal collection with persistent heart toggles across the player and mini-player.
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Expo SDK 54 (managed workflow) |
-| Language | TypeScript |
-| Styling | NativeWind v4 (Tailwind for React Native) |
-| Navigation | expo-router (file-based, tab layout) |
-| Audio | expo-av |
-| Media access | expo-media-library |
-| Metadata / art | @missingcore/react-native-metadata-retriever |
-| Color extraction | react-native-image-colors |
-| Background glow | expo-linear-gradient |
-| Seek / volume | @react-native-community/slider |
-| Animations | react-native-reanimated |
+| **Framework** | Expo SDK 54 (Managed Workflow) |
+| **Language** | TypeScript |
+| **Audio Engine** | react-native-track-player (v4+) |
+| **Animation** | react-native-reanimated |
+| **Vector Graphics** | react-native-svg |
+| **State** | React Context API |
+| **Storage** | expo-secure-store |
+| **Theming** | react-native-image-colors |
 
-## Project Structure
+---
 
-```
-app/                        expo-router entry point
-  _layout.tsx               root Stack layout
-  (tabs)/
-    _layout.tsx             tab bar with dynamic theming
-    index.tsx               Home tab (player)
-    queue.tsx               Queue tab (track list)
-    settings.tsx            Settings tab
-
-src/
-  types/Track.ts            Track and ThemeColors interfaces
-  constants/theme.ts        Default theme values
-  context/PlayerContext.tsx shared playback state across all tabs
-  hooks/
-    useMediaLibrary.ts      permission + audio asset enumeration
-    usePlayer.ts            expo-av playback engine
-    useAlbumColor.ts        dominant color to HSL theme derivation
-  components/
-    AlbumArt.tsx            album art with glow effect and placeholder
-    Controls.tsx            prev / play-pause / next
-    SeekBar.tsx             draggable seek bar with timestamps
-    VolumeSlider.tsx        volume control
-    TrackInfo.tsx           track name and metadata label
-    QueueList.tsx           scrollable flat list of tracks
-    MiniPlayer.tsx          compact playback bar shown on queue/settings
-  app/(tabs)/
-    index.tsx               HomeScreen implementation
-    queue.tsx               QueueScreen implementation
-    settings.tsx            SettingsScreen (About, Developer, Preferences)
-```
-
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
-
-- Node.js 18 or later
+- Node.js 18+
 - Expo CLI
-- Android device or emulator
+- Android Device (Recommended for background audio testing)
 
-### Install
+### Installation
+1. Clone the repository.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Initialize the development build:
+   ```bash
+   npx expo run:android
+   ```
 
-```bash
-npm install
-```
+---
 
-### Run
+## 📅 Development & Updates
+Esei Tase features a built-in **OTA Update Checker**. It automatically queries the GitHub Releases API to notify you whenever a new version of the app is available for download.
 
-```bash
-npx expo start --android
-```
+---
 
-On first launch, the app will request media library access. Once granted, all audio files on the device are loaded into the queue automatically.
+## 📜 License
+This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-## Settings
-
-| Section | Content |
-|---|---|
-| About | App name, version, and description |
-| Developer | Author info and GitHub link |
-| Preferences | Shuffle, repeat, and theme override (coming soon) |
-
-## License
-
-MIT
+Copyright (c) 2026 **Rajjit Laishram**

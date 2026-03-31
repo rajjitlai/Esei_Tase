@@ -45,7 +45,7 @@ interface Props {
 
 export function Controls({ 
   isPlaying, theme, shuffle, repeat, 
-  onToggle, onNext, onPrev, onToggleShuffle, onToggleRepeat 
+  onToggle, onNext, onPrev, onToggleShuffle, onToggleRepeat
 }: Props) {
   return (
     <View style={styles.row}>

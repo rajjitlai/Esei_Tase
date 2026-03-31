@@ -29,6 +29,13 @@ function TabBarIcon({ name, color }: { name: string; color: string }) {
       </Svg>
     );
   }
+  if (name === 'liked') {
+    return (
+      <Svg width={22} height={22} viewBox="0 0 24 24" fill={color === 'transparent' ? 'none' : 'none'} stroke={color} strokeWidth={2}>
+        <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.84-8.84 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </Svg>
+    );
+  }
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
       <Circle cx={12} cy={12} r={3} />
@@ -86,6 +93,17 @@ function ThemedTabs() {
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
                 <TabBarIcon name="queue" color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="liked"
+          options={{
+            title: 'Liked',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
+                <TabBarIcon name="liked" color={color} />
               </View>
             ),
           }}
