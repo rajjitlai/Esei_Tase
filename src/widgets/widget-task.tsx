@@ -6,6 +6,26 @@ import * as SecureStore from 'expo-secure-store';
 import { Linking } from 'react-native';
 import TrackPlayer, { State } from 'react-native-track-player';
 
+async function syncWidgetFromTrackPlayer() {
+  try {
+    const active = await TrackPlayer.getActiveTrack();
+    if (active) {
+      await SecureStore.setItemAsync(WIDGET_KEYS.TITLE, (active as any).title || 'Esei Tase');
+      await SecureStore.setItemAsync(WIDGET_KEYS.ARTIST, (active as any).artist || 'Ready to play');
+      await SecureStore.setItemAsync(
+        WIDGET_KEYS.ART_URI,
+        ((active as any).artwork as string) || ''
+      );
+    }
+
+    const { state } = await TrackPlayer.getPlaybackState();
+    const playing = state === State.Playing || state === State.Buffering;
+    await SecureStore.setItemAsync(WIDGET_KEYS.IS_PLAYING, String(playing));
+  } catch {
+    // ignore
+  }
+}
+
 export async function renderCurrentWidget() {
   try {
     const title = (await SecureStore.getItemAsync(WIDGET_KEYS.TITLE)) || 'Esei Tase';
@@ -16,12 +36,7 @@ export async function renderCurrentWidget() {
     requestWidgetUpdate({
       widgetName: WIDGET_NAME,
       renderWidget: () => (
-        <MusicWidget 
-          title={title} 
-          artist={artist} 
-          isPlaying={isPlaying} 
-          artUri={artUri} 
-        />
+        <MusicWidget title={title} artist={artist} isPlaying={isPlaying} artUri={artUri} />
       ),
     });
   } catch (e) {
@@ -34,17 +49,15 @@ export async function widgetTaskHandler(props: any) {
 
   if (clickAction) {
     try {
-      // Direct Background Control
+      // Direct Background Control (single source of execution for widget actions)
       if (clickAction === 'OPEN_APP') {
         Linking.openURL('esei-tase://');
       } else if (clickAction === 'PLAY' || clickAction === 'PAUSE') {
         const { state } = await TrackPlayer.getPlaybackState();
         if (state === State.Playing) {
           await TrackPlayer.pause();
-          await SecureStore.setItemAsync(WIDGET_KEYS.IS_PLAYING, 'false');
         } else {
           await TrackPlayer.play();
-          await SecureStore.setItemAsync(WIDGET_KEYS.IS_PLAYING, 'true');
         }
       } else if (clickAction === 'NEXT') {
         await TrackPlayer.skipToNext();
@@ -53,14 +66,11 @@ export async function widgetTaskHandler(props: any) {
         await TrackPlayer.skipToPrevious();
         await TrackPlayer.play();
       }
-
-      // Still sync command for the main App UI if it happens to be open
-      await SecureStore.setItemAsync(WIDGET_KEYS.COMMAND, clickAction);
-      await SecureStore.setItemAsync(WIDGET_KEYS.COMMAND_ID, String(Date.now()));
     } catch (e) {
       // Handle cases where engine isn't ready
     }
   }
 
+  await syncWidgetFromTrackPlayer();
   await renderCurrentWidget();
 }

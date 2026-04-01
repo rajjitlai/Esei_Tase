@@ -6,7 +6,7 @@ import TrackPlayer, {
   AppKilledPlaybackBehavior,
   RepeatMode,
   Event,
-  PlaybackActiveTrackChangedEvent
+  PlaybackActiveTrackChangedEvent,
 } from 'react-native-track-player';
 import * as SecureStore from 'expo-secure-store';
 import { Track } from '../types/Track';
@@ -91,17 +91,13 @@ export function usePlayer(tracks: Track[]) {
             Capability.SkipToPrevious,
             Capability.SeekTo,
           ],
-          compactCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-          ],
+          compactCapabilities: [Capability.Play, Capability.Pause, Capability.SkipToNext],
         });
         await TrackPlayer.setRate(1.0);
-        
+
         const savedShuffle = await SecureStore.getItemAsync(STORAGE_KEYS.SHUFFLE);
         const savedRepeat = await SecureStore.getItemAsync(STORAGE_KEYS.REPEAT);
-        
+
         if (savedShuffle !== null) setShuffle(savedShuffle === 'true');
         if (savedRepeat !== null) setRepeat(savedRepeat === 'true');
 
@@ -112,7 +108,9 @@ export function usePlayer(tracks: Track[]) {
       }
     }
     setup();
-    return () => { unmounted = true; };
+    return () => {
+      unmounted = true;
+    };
   }, []);
 
   // Sync Tracks to Queue
@@ -121,20 +119,22 @@ export function usePlayer(tracks: Track[]) {
 
     async function updateQueue() {
       try {
-        const tracksHash = tracks.map(t => t.id).join(',');
+        const tracksHash = tracks.map((t) => t.id).join(',');
         if (lastTracksRef.current === tracksHash) return;
 
         const queue = await TrackPlayer.getQueue();
         if (queue.length !== tracks.length) {
           await TrackPlayer.reset();
-          await TrackPlayer.add(tracks.map(t => ({
-            id: t.id,
-            url: t.uri,
-            title: t.title,
-            artist: t.artist,
-            artwork: t.artUri || undefined,
-            duration: t.duration,
-          })));
+          await TrackPlayer.add(
+            tracks.map((t) => ({
+              id: t.id,
+              url: t.uri,
+              title: t.title,
+              artist: t.artist,
+              artwork: t.artUri || undefined,
+              duration: t.duration,
+            }))
+          );
 
           lastTracksRef.current = tracksHash;
           if (currentIndex === -1) {
@@ -159,11 +159,14 @@ export function usePlayer(tracks: Track[]) {
   useEffect(() => {
     if (!isReady) return;
 
-    const trackSub = TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async (event: PlaybackActiveTrackChangedEvent) => {
-      if (event.index !== undefined) {
-        setCurrentIndex(event.index);
+    const trackSub = TrackPlayer.addEventListener(
+      Event.PlaybackActiveTrackChanged,
+      async (event: PlaybackActiveTrackChangedEvent) => {
+        if (event.index !== undefined) {
+          setCurrentIndex(event.index);
+        }
       }
-    });
+    );
 
     const queueEndedSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
       if (repeat) {
@@ -209,28 +212,31 @@ export function usePlayer(tracks: Track[]) {
     syncExternalControls();
   }, [currentIndex, isPlaying, tracks]);
 
-  const loadTrack = useCallback(async (index: number, autoPlay = true) => {
-    if (!isReady) return;
-    try {
-      await TrackPlayer.skip(index);
-      setCurrentIndex(index);
-      if (autoPlay) {
-        setIsPlaying(true);
-        await TrackPlayer.play();
+  const loadTrack = useCallback(
+    async (index: number, autoPlay = true) => {
+      if (!isReady) return;
+      try {
+        await TrackPlayer.skip(index);
+        setCurrentIndex(index);
+        if (autoPlay) {
+          setIsPlaying(true);
+          await TrackPlayer.play();
+        }
+      } catch (e) {
+        console.error('[usePlayer] loadTrack error:', e);
       }
-    } catch (e) {
-      console.error('[usePlayer] loadTrack error:', e);
-    }
-  }, [isReady]);
+    },
+    [isReady]
+  );
 
   const togglePlay = useCallback(async () => {
     if (!isReady) return;
     try {
       const { state } = await TrackPlayer.getPlaybackState();
       const isCurrentlyPlaying = state === State.Playing || state === State.Buffering;
-      
+
       setIsPlaying(!isCurrentlyPlaying); // Optimistic UI Update
-      
+
       if (isCurrentlyPlaying) {
         await TrackPlayer.pause();
       } else {
@@ -241,22 +247,41 @@ export function usePlayer(tracks: Track[]) {
     }
   }, [isReady]);
 
-  const seekTo = useCallback(async (seconds: number) => {
+  const pause = useCallback(async () => {
     if (!isReady) return;
-    await TrackPlayer.seekTo(seconds);
+    try {
+      setIsPlaying(false);
+      await TrackPlayer.pause();
+    } catch (e) {
+      console.error('[usePlayer] pause error:', e);
+    }
   }, [isReady]);
 
-  const setVolume = useCallback(async (v: number) => {
-    if (!isReady) return;
-    setVolumeState(v);
-    await TrackPlayer.setVolume(v);
-  }, [isReady]);
+  const seekTo = useCallback(
+    async (seconds: number) => {
+      if (!isReady) return;
+      await TrackPlayer.seekTo(seconds);
+    },
+    [isReady]
+  );
 
-  const setRate = useCallback(async (r: number) => {
-    if (!isReady) return;
-    setRateState(r);
-    await TrackPlayer.setRate(r);
-  }, [isReady]);
+  const setVolume = useCallback(
+    async (v: number) => {
+      if (!isReady) return;
+      setVolumeState(v);
+      await TrackPlayer.setVolume(v);
+    },
+    [isReady]
+  );
+
+  const setRate = useCallback(
+    async (r: number) => {
+      if (!isReady) return;
+      setRateState(r);
+      await TrackPlayer.setRate(r);
+    },
+    [isReady]
+  );
 
   const nextTrack = useCallback(async () => {
     if (!isReady) return;
@@ -294,33 +319,6 @@ export function usePlayer(tracks: Track[]) {
     await SecureStore.setItemAsync(STORAGE_KEYS.REPEAT, String(newVal));
   }, [repeat]);
 
-  // Listen for Commands from Widget
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        const command = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND);
-        const commandId = await SecureStore.getItemAsync(WIDGET_KEYS.COMMAND_ID);
-
-        if (command && commandId) {
-          const lastCmdId = await SecureStore.getItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD);
-          if (commandId !== lastCmdId) {
-            await SecureStore.setItemAsync(WIDGET_KEYS.LAST_PROCESSED_CMD, commandId);
-
-            if (command === 'PLAY' || command === 'PAUSE') await togglePlay();
-            else if (command === 'NEXT') await nextTrack();
-            else if (command === 'PREV') await prevTrack();
-
-            await SecureStore.deleteItemAsync(WIDGET_KEYS.COMMAND);
-          }
-        }
-      } catch {
-        // Ignore storage errors
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [togglePlay, nextTrack, prevTrack]);
-
   // isPlaying is managed via event listener state above
 
   const state: PlayerState = {
@@ -334,5 +332,17 @@ export function usePlayer(tracks: Track[]) {
     repeat,
   };
 
-  return { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat };
+  return {
+    state,
+    loadTrack,
+    togglePlay,
+    pause,
+    seekTo,
+    setVolume,
+    setRate,
+    nextTrack,
+    prevTrack,
+    toggleShuffle,
+    toggleRepeat,
+  };
 }

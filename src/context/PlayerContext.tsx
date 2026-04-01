@@ -62,40 +62,58 @@ interface PlayerContextValue {
 const PlayerContext = createContext<PlayerContextValue | null>(null);
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const { tracks, setTracks, loading, permissionDenied, minDuration, updateMinDuration } = useMediaLibrary();
-  const { state, loadTrack, togglePlay, seekTo, setVolume, setRate, nextTrack, prevTrack, toggleShuffle, toggleRepeat } = usePlayer(tracks);
+  const { tracks, setTracks, loading, permissionDenied, minDuration, updateMinDuration } =
+    useMediaLibrary();
+  const {
+    state,
+    loadTrack,
+    togglePlay,
+    pause,
+    seekTo,
+    setVolume,
+    setRate,
+    nextTrack,
+    prevTrack,
+    toggleShuffle,
+    toggleRepeat,
+  } = usePlayer(tracks);
   const { toggleFavorite, isFavorite } = useFavorites();
 
   // Sleep Timer State
   const [sleepTimer, _setSleepTimer] = useState(0);
   const timerRef = useRef<any>(null);
 
-  const setSleepTimer = useCallback((minutes: number) => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    
-    if (minutes <= 0) {
-      _setSleepTimer(0);
-      return;
-    }
+  const setSleepTimer = useCallback(
+    (minutes: number) => {
+      if (timerRef.current) clearInterval(timerRef.current);
 
-    const seconds = minutes * 60;
-    _setSleepTimer(seconds);
+      if (minutes <= 0) {
+        _setSleepTimer(0);
+        return;
+      }
 
-    timerRef.current = setInterval(() => {
-      _setSleepTimer((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          togglePlay(); // Pause playback
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [togglePlay]);
+      const seconds = minutes * 60;
+      _setSleepTimer(seconds);
+
+      timerRef.current = setInterval(() => {
+        _setSleepTimer((prev) => {
+          if (prev <= 1) {
+            if (timerRef.current) clearInterval(timerRef.current);
+            pause();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    },
+    [pause]
+  );
 
   // Cleanup on unmount
   useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
   const currentTrack = state.currentIndex >= 0 ? tracks[state.currentIndex] : null;
@@ -182,12 +200,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         // Sleep Timer
         sleepTimer,
         setSleepTimer,
-      }}
-    >
+      }}>
       {bgMode === 'custom' && customBgUri ? (
         <View style={StyleSheet.absoluteFill}>
           <Image source={{ uri: customBgUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black', opacity: bgOpacity }]} />
+          <View
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'black', opacity: bgOpacity }]}
+          />
         </View>
       ) : (
         <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.bg }]} />
