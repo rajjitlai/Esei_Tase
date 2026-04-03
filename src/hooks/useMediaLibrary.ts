@@ -41,7 +41,7 @@ export function useMediaLibrary() {
 
   async function loadTracks(threshold = minDuration) {
     setLoading(true);
-    const { status } = await MediaLibrary.requestPermissionsAsync();
+    const { status } = await MediaLibrary.requestPermissionsAsync(false, ['audio']);
     if (status !== 'granted') {
       setPermissionDenied(true);
       setLoading(false);

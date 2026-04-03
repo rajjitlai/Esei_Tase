@@ -10,7 +10,15 @@
     "scheme": "esei-tase",
     "plugins": [
       "expo-router",
-      "expo-media-library",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos.",
+          "isWriteOnly": false,
+          "granularPermissions": ["audio"]
+        }
+      ],
       "expo-asset",
       "./withMedia3Exclude.js",
       "expo-secure-store",

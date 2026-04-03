@@ -1,0 +1,144 @@
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+index b2409a0..cde61d5 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/module/MusicModule.kt
+@@ -545,7 +545,7 @@ class MusicModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
+         if (verifyServiceBoundOrReject(callback)) return@launch
+ 
+         if (index >= 0 && index < musicService.tracks.size) {
+-            callback.resolve(Arguments.fromBundle(musicService.tracks[index].originalItem))
++            callback.resolve(Arguments.fromBundle(musicService.tracks[index].originalItem ?: Bundle()))
+         } else {
+             callback.resolve(null)
+         }
+@@ -585,7 +585,7 @@ class MusicModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
+         callback.resolve(
+             if (musicService.tracks.isEmpty()) null
+             else Arguments.fromBundle(
+-                musicService.tracks[musicService.getCurrentTrackIndex()].originalItem
++                musicService.tracks[musicService.getCurrentTrackIndex()].originalItem ?: Bundle()
+             )
+         )
+     }
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
+index 9d6d869..e620674 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
+@@ -761,7 +761,7 @@ class MusicService : HeadlessJsTaskService() {
+     }
+ 
+     @MainThread
+-    override fun onBind(intent: Intent?): IBinder {
++    override fun onBind(intent: Intent): IBinder? {
+         return binder
+     }
+ 
+diff --git a/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js b/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js
+index 56ebacd..3b3cc8d 100644
+--- a/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js
++++ b/node_modules/react-native-track-player/lib/src/TrackPlayerModule.js
+@@ -1,3 +1,48 @@
+-import { NativeModules } from 'react-native';
++import { NativeModules, Platform } from 'react-native';
++
+ const { TrackPlayerModule } = NativeModules;
+-export default TrackPlayerModule;
++
++const fallback = {
++  CAPABILITY_PLAY: 1,
++  CAPABILITY_PLAY_FROM_ID: 2,
++  CAPABILITY_PLAY_FROM_SEARCH: 3,
++  CAPABILITY_PAUSE: 4,
++  CAPABILITY_STOP: 5,
++  CAPABILITY_SEEK_TO: 6,
++  CAPABILITY_SKIP: 7,
++  CAPABILITY_SKIP_TO_NEXT: 8,
++  CAPABILITY_SKIP_TO_PREVIOUS: 9,
++  CAPABILITY_JUMP_FORWARD: 10,
++  CAPABILITY_JUMP_BACKWARD: 11,
++  CAPABILITY_SET_RATING: 12,
++  CAPABILITY_LIKE: 13,
++  CAPABILITY_DISLIKE: 14,
++  CAPABILITY_BOOKMARK: 15,
++  setupPlayer: async () => {},
++  updateOptions: async () => {},
++  add: async () => {},
++  remove: async () => {},
++  skip: async () => {},
++  skipToNext: async () => {},
++  skipToPrevious: async () => {},
++  reset: async () => {},
++  play: async () => {},
++  pause: async () => {},
++  stop: async () => {},
++  seekTo: async () => {},
++  setVolume: async () => {},
++  setRate: async () => {},
++  getVolume: async () => 0,
++  getRate: async () => 1,
++  getTrack: async () => null,
++  getQueue: async () => [],
++  getCurrentTrack: async () => null,
++  getPlaybackState: async () => ({ state: 'none' }),
++  getDuration: async () => 0,
++  getPosition: async () => 0,
++  getBufferedPosition: async () => 0,
++  setRepeatMode: async () => {},
++  getRepeatMode: async () => 0,
++};
++
++export default TrackPlayerModule || fallback;
+diff --git a/node_modules/react-native-track-player/src/TrackPlayerModule.ts b/node_modules/react-native-track-player/src/TrackPlayerModule.ts
+index 56ebacd..28b5a5e 100644
+--- a/node_modules/react-native-track-player/src/TrackPlayerModule.ts
++++ b/node_modules/react-native-track-player/src/TrackPlayerModule.ts
+@@ -1,3 +1,48 @@
+ import { NativeModules } from 'react-native';
++
+ const { TrackPlayerModule } = NativeModules;
+-export default TrackPlayerModule;
++
++const fallback = {
++  CAPABILITY_PLAY: 1,
++  CAPABILITY_PLAY_FROM_ID: 2,
++  CAPABILITY_PLAY_FROM_SEARCH: 3,
++  CAPABILITY_PAUSE: 4,
++  CAPABILITY_STOP: 5,
++  CAPABILITY_SEEK_TO: 6,
++  CAPABILITY_SKIP: 7,
++  CAPABILITY_SKIP_TO_NEXT: 8,
++  CAPABILITY_SKIP_TO_PREVIOUS: 9,
++  CAPABILITY_JUMP_FORWARD: 10,
++  CAPABILITY_JUMP_BACKWARD: 11,
++  CAPABILITY_SET_RATING: 12,
++  CAPABILITY_LIKE: 13,
++  CAPABILITY_DISLIKE: 14,
++  CAPABILITY_BOOKMARK: 15,
++  setupPlayer: async () => {},
++  updateOptions: async () => {},
++  add: async () => {},
++  remove: async () => {},
++  skip: async () => {},
++  skipToNext: async () => {},
++  skipToPrevious: async () => {},
++  reset: async () => {},
++  play: async () => {},
++  pause: async () => {},
++  stop: async () => {},
++  seekTo: async () => {},
++  setVolume: async () => {},
++  setRate: async () => {},
++  getVolume: async () => 0,
++  getRate: async () => 1,
++  getTrack: async () => null,
++  getQueue: async () => [],
++  getCurrentTrack: async () => null,
++  getPlaybackState: async () => ({ state: 'none' }),
++  getDuration: async () => 0,
++  getPosition: async () => 0,
++  getBufferedPosition: async () => 0,
++  setRepeatMode: async () => {},
++  getRepeatMode: async () => 0,
++};
++
++export default TrackPlayerModule || fallback;
