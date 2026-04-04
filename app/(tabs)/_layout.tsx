@@ -87,23 +87,23 @@ function ThemedTabs() {
           }}
         />
         <Tabs.Screen
-          name="queue"
-          options={{
-            title: 'Queue',
-            tabBarIcon: ({ color, focused }) => (
-              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
-                <TabBarIcon name="queue" color={color} />
-              </View>
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="liked"
           options={{
             title: 'Liked',
             tabBarIcon: ({ color, focused }) => (
               <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
                 <TabBarIcon name="liked" color={color} />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="queue"
+          options={{
+            title: 'Queue',
+            tabBarIcon: ({ color, focused }) => (
+              <View style={[styles.iconContainer, focused && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]}>
+                <TabBarIcon name="queue" color={color} />
               </View>
             ),
           }}

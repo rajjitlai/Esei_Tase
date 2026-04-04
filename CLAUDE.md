@@ -35,7 +35,8 @@ src/
 │   └── PlayerContext.tsx  # Main player state provider
 ├── hooks/             # Custom hooks
 │   ├── useAlbumColor.ts   # Dynamic theming from album art
-│   ├── useAudio.ts        # Expo Audio API implementation
+│   ├── useAudio.ts        # Deprecated: expo-audio implementation, do NOT use
+│   ├── useDebounce.ts     # Debounce utility hook
 │   ├── useFavorites.ts    # Favorites management
 │   ├── useMediaLibrary.ts # Media scanning & metadata
 │   ├── useOTA.ts         # Over-the-air update checks
@@ -44,9 +45,12 @@ src/
 │   └── Track.ts
 ├── constants/         # App constants
 │   └── theme.ts
+├── service.ts         # TrackPlayer PlaybackService (remote controls)
 └── widgets/           # Android home screen widgets
     ├── MusicWidget.tsx
-    └── widget-task.tsx
+    ├── widget-task.tsx
+    ├── widget-logic.ts
+    └── widget-constants.ts
 ```
 
 ## Common Development Commands
@@ -93,16 +97,19 @@ The app uses **react-native-track-player** via `usePlayer.ts` (v4+).
 
 ### Routing & Navigation
 - **Expo Router** (v6) with file-based routing.
-- Tabs: Home (index), Queue, Settings.
+- Tabs: Home (index), Queue, Liked, Settings.
 - Custom tab bar with blur effect and dynamic accent color.
 - Stack wrapper at root for future screen expansions.
 
 ### Android Widget
 - Uses `react-native-android-widget` for home screen widget.
-- Widget communicates via `expo-secure-store` (polling pattern):
-  - Player syncs state → SecureStore keys (WIDGET_KEYS) → triggers `triggerWidgetUpdate()`.
-  - Widget commands (PLAY/PAUSE/NEXT/PREV) → SecureStore command → Player polls and executes.
+- Widget communicates via `expo-secure-store` (push pattern, no polling):
+  - Player syncs state → SecureStore keys (WIDGET_KEYS: `widget_title`, `widget_artist`, `widget_isPlaying`, `widget_artUri`) → calls `triggerWidgetUpdate()` (dependency-injected in `app/_layout.tsx` via `setWidgetUpdater`) → calls `requestWidgetUpdate()` with JSX render.
+  - Widget click actions (OPEN_APP/PLAY/PAUSE/NEXT/PREV) → `widgetTaskHandler` in `src/widgets/widget-task.tsx` → executes TrackPlayer commands directly in headless JS → syncs state back via `syncWidgetFromTrackPlayer()` → re-renders widget.
+- Widget uses JSX rendering (`MusicWidget` component) rather than RemoteViews XML.
 - Widget definition: `src/widgets/MusicWidget.tsx`
+- Constants: `src/widgets/widget-constants.ts`
+- DI bridge: `src/widgets/widget-logic.ts` (`setWidgetUpdater` / `triggerWidgetUpdate`)
 - Task handler: `src/widgets/widget-task.tsx` (registered in `app/_layout.tsx`)
 
 ### Media Library Scanning
@@ -179,13 +186,13 @@ See `app.json` for configuration (version, bundle ID, permissions, plugins).
 
 ## Notable Decisions & Evolution
 
-1. **Audio engine divergence**: `usePlayer` (track-player) and `useAudio` (expo-audio) represent two different approaches. The current implementation uses expo-audio for potentially simpler Expo compatibility, but track-player offers more mature background/lock-screen integration. Migrating back would involve updating `PlayerProvider`.
+1. **Audio engine**: `usePlayer.ts` (react-native-track-player v4.1.1) is the active audio engine. `useAudio.ts` (expo-audio) is deprecated and unused — remove it when migration is fully verified.
 
-2. **SecureStore for IPC**: Widget <-> app communication uses SecureStore polling (500ms interval). This is a pragmatic native bridge pattern for RN Android widgets without sophisticated event mechanisms.
+2. **Widget IPC via SecureStore**: Widget ↔ app communication uses SecureStore as a shared state bridge (push pattern, no polling). The player writes state to SecureStore keys then calls `triggerWidgetUpdate()`. Widget click actions are handled as headless JS tasks via `widgetTaskHandler` which executes TrackPlayer commands directly and re-renders the JSX widget. This is a pragmatic native bridge pattern for RN Android widgets.
 
 3. **Color theming strategy**: Album art → dominant color → HSL adjustments → full palette. Creates cohesive, track-specific UI without overwhelming users.
 
-4. **Permissions**: Android permissions declared in `app.json`; runtime requested via `expo-media-library`. READ_EXTERNAL_STORAGE and READ_MEDIA_AUDIO are critical for library scanning.
+4. **Permissions**: Android permissions declared in `app.json`; runtime requested via `expo-media-library`. READ_MEDIA_AUDIO and POST_NOTIFICATIONS are critical on Android 13+. FOREGROUND_SERVICE_MEDIA_PLAYBACK required for background audio.
 
 ## Testing Notes
 

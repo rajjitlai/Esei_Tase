@@ -7,6 +7,7 @@ interface Props {
   currentIndex: number;
   theme: ThemeColors;
   onSelect: (index: number) => void;
+  onDelete?: (id: string) => void;
 }
 
 function fmt(s: number): string {
@@ -20,12 +21,14 @@ function QueueItem({
   isActive,
   theme,
   onSelect,
+  onDelete,
 }: {
   track: Track;
   index: number;
   isActive: boolean;
   theme: ThemeColors;
   onSelect: () => void;
+  onDelete?: (id: string) => void;
 }) {
   return (
     <TouchableOpacity
@@ -43,6 +46,15 @@ function QueueItem({
         {track.title}
       </Text>
       <Text style={[styles.dur, { color: theme.muted }]}>{fmt(track.duration)}</Text>
+      {onDelete && (
+        <TouchableOpacity
+          onPress={() => onDelete(track.id)}
+          style={styles.deleteBtn}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.deleteText}>✕</Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -56,6 +68,7 @@ export function QueueList({ tracks, currentIndex, theme, onSelect }: Props) {
         isActive={index === currentIndex}
         theme={theme}
         onSelect={() => onSelect(index)}
+        onDelete={onDelete}
       />
     ),
     [currentIndex, theme, onSelect]
@@ -97,4 +110,15 @@ const styles = StyleSheet.create({
   dur: { fontSize: 11, flexShrink: 0 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emptyText: { fontSize: 13, textAlign: 'center', lineHeight: 22 },
+  deleteBtn: {
+    padding: 6,
+    marginLeft: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,0,0,0.2)',
+  },
+  deleteText: {
+    color: '#ff6b6b',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
 });

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { Track, ThemeColors } from '../types/Track';
@@ -6,6 +6,8 @@ import { useMediaLibrary } from '../hooks/useMediaLibrary';
 import { usePlayer } from '../hooks/usePlayer';
 import { useAlbumColor } from '../hooks/useAlbumColor';
 import { useFavorites } from '../hooks/useFavorites';
+import { WIDGET_KEYS } from '../widgets/widget-constants';
+import { triggerWidgetUpdate } from '../widgets/widget-logic';
 
 const BG_KEYS = {
   MODE: 'esei_tase_bg_mode',
@@ -116,8 +118,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const removeTrack = useCallback((id: string) => {
+    setTracks(prev => prev.filter(t => t.id !== id));
+  }, [setTracks]);
+
   const currentTrack = state.currentIndex >= 0 ? tracks[state.currentIndex] : null;
   const theme = useAlbumColor(currentTrack?.artUri ?? null);
+  const isCurrentTrackFav = currentTrack ? isFavorite(currentTrack.id) : false;
+
+  // Widget sync for current track ID and favorite state
+  useEffect(() => {
+    if (!currentTrack) return;
+    Promise.all([
+      SecureStore.setItemAsync(WIDGET_KEYS.CURRENT_TRACK_ID, currentTrack.id),
+      SecureStore.setItemAsync(WIDGET_KEYS.IS_FAVORITE, String(isCurrentTrackFav)),
+    ])
+      .then(() => triggerWidgetUpdate())
+      .catch(() => {});
+  }, [currentTrack?.id, isCurrentTrackFav]);
 
   // Background State
   const [bgMode, _setBgMode] = useState<BgMode>('adaptive');
@@ -200,6 +218,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         // Sleep Timer
         sleepTimer,
         setSleepTimer,
+        removeTrack,
       }}>
       {bgMode === 'custom' && customBgUri ? (
         <View style={StyleSheet.absoluteFill}>

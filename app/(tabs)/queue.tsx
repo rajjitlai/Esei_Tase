@@ -11,7 +11,7 @@ import Svg, { Path } from 'react-native-svg';
 import { PageLayout } from '../../src/components/PageLayout';
 
 export default function QueueScreen() {
-  const { tracks, currentIndex, theme, loadTrack } = usePlayerContext();
+  const { tracks, currentIndex, theme, loadTrack, removeTrack } = usePlayerContext();
   const [search, setSearch] = React.useState('');
   const debouncedSearch = useDebounce(search, 300);
 
@@ -52,6 +52,7 @@ export default function QueueScreen() {
             const originalIndex = tracks.findIndex(t => t.id === track.id);
             loadTrack(originalIndex, true);
           }}
+          onDelete={removeTrack}
         />
       </View>
     </PageLayout>

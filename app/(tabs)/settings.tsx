@@ -16,6 +16,7 @@ import { MiniPlayer } from '../../src/components/MiniPlayer';
 import { PageLayout } from '../../src/components/PageLayout';
 import { useOTA } from '../../src/hooks/useOTA';
 import packageJson from '../../package.json';
+import Constants from 'expo-constants';
 
 const GITHUB_URL = 'https://github.com/rajjitlai';
 
@@ -83,6 +84,7 @@ export default function SettingsScreen() {
     setRate,
   } = usePlayerContext();
 
+  const appVersion = Constants.nativeAppVersion ?? Constants.manifest?.version ?? 'unknown';
   const { checkForUpdates, checking } = useOTA();
 
   const formatTime = (seconds: number) => {
@@ -101,7 +103,7 @@ export default function SettingsScreen() {
           <Row label="App" value="Esei Tase" muted={theme.muted} surface={theme.surface} />
           <Row
             label="Version"
-            value={packageJson.version}
+            value={appVersion}
             muted={theme.muted}
             surface={theme.surface}
           />

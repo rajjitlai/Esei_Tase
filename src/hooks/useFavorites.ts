@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-const FAVORITES_KEY = 'esei_tase_favorites';
+export const FAVORITES_KEY = 'esei_tase_favorites';
 
 export function useFavorites() {
   const [favorites, setFavorites] = useState<string[]>([]);

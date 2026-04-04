@@ -170,7 +170,12 @@ export function usePlayer(tracks: Track[]) {
 
     const queueEndedSub = TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async () => {
       if (repeat) {
-        await nextTrack();
+        try {
+          await nextTrack();
+        } catch (e) {
+          console.error('[QueueEnded] nextTrack failed:', e);
+          setIsPlaying(false);
+        }
       } else {
         setIsPlaying(false);
       }
@@ -183,9 +188,10 @@ export function usePlayer(tracks: Track[]) {
 
     return () => {
       trackSub.remove();
+      queueEndedSub.remove();
       errorSub.remove();
     };
-  }, [isReady]);
+  }, [isReady, repeat, nextTrack]);
 
   // --- WIDGET SYNC & COMMANDS ---
 
@@ -284,27 +290,40 @@ export function usePlayer(tracks: Track[]) {
   );
 
   const nextTrack = useCallback(async () => {
-    if (!isReady) return;
-    if (shuffle) {
-      const next = Math.floor(Math.random() * tracks.length);
-      await TrackPlayer.skip(next);
-    } else {
-      await TrackPlayer.skipToNext();
+    if (!isReady || tracks.length === 0) return;
+
+    try {
+      if (shuffle) {
+        const next = Math.floor(Math.random() * tracks.length);
+        await TrackPlayer.skip(next);
+      } else {
+        await TrackPlayer.skipToNext();
+      }
+      setIsPlaying(true);
+      await TrackPlayer.play();
+    } catch (e) {
+      console.error('[nextTrack] failed:', e);
+      // Could be end of queue or no next track; keep state consistent
+      setIsPlaying(false);
     }
-    setIsPlaying(true);
-    await TrackPlayer.play();
   }, [isReady, shuffle, tracks.length]);
 
   const prevTrack = useCallback(async () => {
     if (!isReady) return;
-    const pos = await TrackPlayer.getPosition();
-    if (pos > 3) {
-      await TrackPlayer.seekTo(0);
-    } else {
-      await TrackPlayer.skipToPrevious();
+
+    try {
+      const pos = await TrackPlayer.getPosition();
+      if (pos > 3) {
+        await TrackPlayer.seekTo(0);
+      } else {
+        await TrackPlayer.skipToPrevious();
+      }
+      setIsPlaying(true);
+      await TrackPlayer.play();
+    } catch (e) {
+      console.error('[prevTrack] failed:', e);
+      setIsPlaying(false);
     }
-    setIsPlaying(true);
-    await TrackPlayer.play();
   }, [isReady]);
 
   const toggleShuffle = useCallback(async () => {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Esei Tase",
     "slug": "esei-tase",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -60,7 +60,7 @@
       "supportsTablet": true
     },
     "android": {
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0e0e0e"

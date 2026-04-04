@@ -1,11 +1,12 @@
 import React from 'react';
 import { FlexWidget, TextWidget, ImageWidget } from 'react-native-android-widget';
 
-export function MusicWidget({ 
-  title = 'Esei Tase', 
-  artist = 'Ready to play', 
-  isPlaying = false, 
-  artUri = '' 
+export function MusicWidget({
+  title = 'Esei Tase',
+  artist = 'Ready to play',
+  isPlaying = false,
+  artUri = '',
+  isFavorite = false,
 }) {
   return (
     <FlexWidget
@@ -116,6 +117,24 @@ export function MusicWidget({
           clickAction="NEXT"
         >
           <TextWidget text="⏭" style={{ color: '#FFFFFF', fontSize: 16 }} />
+        </FlexWidget>
+        <FlexWidget
+          style={{
+            padding: 8,
+            borderRadius: 20,
+            backgroundColor: isFavorite ? 'rgba(255,64,129,0.3)' : 'rgba(255,255,255,0.05)',
+            width: 40,
+            height: 40,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginLeft: 4,
+          }}
+          clickAction="LIKE"
+        >
+          <TextWidget
+            text={isFavorite ? "❤" : "♡"}
+            style={{ color: isFavorite ? '#FF4081' : '#FFFFFF', fontSize: 16 }}
+          />
         </FlexWidget>
       </FlexWidget>
     </FlexWidget>

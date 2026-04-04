@@ -1,6 +1,6 @@
 {
   "name": "esei-tase",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "scripts": {
     "android": "expo run:android",
     "ios": "expo run:ios",
